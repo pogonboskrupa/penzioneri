@@ -58,6 +58,15 @@
   <label><input type="radio" name="vrsta" value="SVE" checked> Obje</label>
   <label><input type="radio" name="vrsta" value="CIJEPANO"> Cijepano</label>
   <label><input type="radio" name="vrsta" value="U DUGOM"> U dugom</label>
+  <label>Kategorija:
+    <select id="kategorija">
+      <option value="SVE">sve</option>
+      <option value="PENZIONER">penzioneri</option>
+      <option value="RVI">RVI</option>
+      <option value="SINDIKAT">sindikat</option>
+      <option value="OSTALO">ostalo</option>
+    </select>
+  </label>
   <label><input type="checkbox" id="samoPreostalo"> Samo gdje je ostalo</label>
   <input type="search" id="pretraga" placeholder="Traži ulicu, mjesto ili prezime">
   <button id="osvjezi">↻ Osvježi</button>
@@ -133,12 +142,15 @@ function odabranaVrsta() {
 
 function zbirZa(tacka) {
   var v = odabranaVrsta(), preostalo = 0, isporuceno = 0, korisnici = [];
+  var kat = document.getElementById('kategorija').value;
   Object.keys(tacka.vrste || {}).forEach(function (naziv) {
     if (v !== 'SVE' && v !== naziv) return;
-    var d = tacka.vrste[naziv];
-    preostalo += d.preostalo;
-    isporuceno += d.isporuceno;
-    d.korisnici.forEach(function (k) { korisnici.push({ vrsta: naziv, k: k }); });
+    tacka.vrste[naziv].korisnici.forEach(function (k) {
+      if (kat !== 'SVE' && (k.kategorija || 'PENZIONER') !== kat) return;
+      preostalo += k.preostalo;
+      isporuceno += k.isporuceno;
+      korisnici.push({ vrsta: naziv, k: k });
+    });
   });
   return { preostalo: Math.round(preostalo * 100) / 100,
            isporuceno: Math.round(isporuceno * 100) / 100, korisnici: korisnici };
@@ -158,6 +170,49 @@ function odgovaraPretrazi(tacka, z, tekst) {
   });
 }
 
+var BOJA_KATEGORIJE = { PENZIONER:'#1a73e8', RVI:'#8e24aa', SINDIKAT:'#00838f',
+                        OSTALO:'#5f6368' };
+
+function kategorijaZnak(k) {
+  k = k || 'PENZIONER';
+  return '<span class="oznaka" style="background:' +
+    (BOJA_KATEGORIJE[k] || BOJA_KATEGORIJE.OSTALO) + '">' +
+    (k === 'PENZIONER' ? 'penzioner' : k.toLowerCase()) + '</span>';
+}
+
+/** Kratak opis iznad markera: ulica, kubici i imena onih koji čekaju. */
+function tooltipHtml(tacka, z) {
+  var cekaju = z.korisnici.filter(function (r) { return r.k.preostalo > 0.001; });
+  var lista = cekaju.length ? cekaju : z.korisnici;
+  var imena = lista.slice(0, 3).map(function (r) {
+    return r.k.ime + ' (' + (r.k.kategorija || 'PENZIONER').toLowerCase() + ')';
+  }).join(', ');
+  return '<strong>' + tacka.ulica + '</strong> · ' + tacka.mjesto +
+    '<br>ostalo <strong>' + z.preostalo + ' m³</strong>, isporučeno ' +
+    z.isporuceno + ' m³' + (imena ? '<br>' + (cekaju.length ? 'čekaju: ' : '') +
+    imena + (lista.length > 3 ? ' +' + (lista.length - 3) : '') : '');
+}
+
+/** Puni spisak imena u oblačiću na karti. */
+function popupHtml(tacka, z) {
+  var html = '<div style="font-size:12px"><strong>' + tacka.ulica + ', ' +
+    tacka.mjesto + '</strong><br>ostalo ' + z.preostalo + ' m³ · isporučeno ' +
+    z.isporuceno + ' m³<table style="margin-top:4px">';
+  z.korisnici.slice().sort(function (a, b) { return b.k.preostalo - a.k.preostalo; })
+    .forEach(function (r) {
+      var k = r.k, gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
+      html += '<tr><td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
+        (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime + '</strong> ' +
+        kategorijaZnak(k.kategorija) + '<br><span style="color:#5f6368">' +
+        r.vrsta + '</span></td><td>' +
+        (gotov ? 'isporučeno ' + k.isporuceno + ' m³' +
+                 (k.datum ? '<br>' + k.datum : '')
+               : 'ostalo <strong>' + k.preostalo + ' m³</strong>') +
+        '</td></tr>';
+    });
+  return html + '</table></div>';
+}
+
 function crtaj() {
   sloj.clearLayers();
   var samoPreostalo = document.getElementById('samoPreostalo').checked;
@@ -175,8 +230,8 @@ function crtaj() {
         radius: Math.max(7, Math.min(26, 6 + Math.sqrt(z.preostalo) * 3)),
         color: '#fff', weight: 2, fillColor: boja(z), fillOpacity: .85
       }).addTo(sloj);
-      marker.bindTooltip(tacka.ulica + ' (' + tacka.mjesto + '): ostalo ' +
-        z.preostalo + ' m³', { direction: 'top' });
+      marker.bindTooltip(tooltipHtml(tacka, z), { direction: 'top' });
+      marker.bindPopup(popupHtml(tacka, z), { maxWidth: 340, maxHeight: 320 });
       marker.on('click', function () { otvori(tacka, z); });
     }
     redovi.push({ tacka: tacka, z: z, marker: marker });
@@ -223,7 +278,8 @@ function otvori(tacka, z, element) {
   z.korisnici.forEach(function (r) {
     var k = r.k, gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
     html += '<tr><td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
-      (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime + '</strong><br>' +
+      (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime + '</strong> ' +
+      kategorijaZnak(k.kategorija) + '<br>' +
       '<span style="color:#5f6368">' + r.vrsta +
       (k.telefon ? ' · ' + k.telefon : '') + '</span></td><td>' +
       (gotov ? 'isporučeno ' + k.isporuceno + ' m³' +
@@ -245,6 +301,7 @@ function otvori(tacka, z, element) {
 
 document.querySelectorAll('input[name=vrsta]').forEach(function (el) { el.onchange = crtaj; });
 document.getElementById('samoPreostalo').onchange = crtaj;
+document.getElementById('kategorija').onchange = crtaj;
 document.getElementById('pretraga').oninput = crtaj;
 document.getElementById('osvjezi').onclick = ucitaj;
 pokreni();

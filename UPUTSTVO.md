@@ -87,12 +87,24 @@ Na karti:
   **žuti** = djelimično, **zeleni** = ulica završena;
 - veličina kruga = koliko m³ je ostalo;
 - gore biraš **Cijepano / U dugom / Obje** i „Prikaži samo ulice gdje je ostalo“;
-- klik na ulicu → desno spisak **kome je isporučeno** (✓ s datumom i
+- prelaskom miša preko kruga vidi se ulica, koliko je ostalo/isporučeno i
+  **imena onih koji čekaju** (s kategorijom), a klik otvara oblačić s
+  **punim spiskom imena i prezimena** i količinama;
+- desno je isti spisak detaljnije: **kome je isporučeno** (✓ s datumom i
   otpremnicom) i **ko još čeka** (koliko m³, telefon), plus dugme
   **Navigacija (Google Maps)** za vozača kamiona.
 
 Ako neka ulica ostane bez koordinata, upiši `Lat` i `Lng` ručno u `ULICE_GEO`
 (u Google Mapsu desni klik na lokaciju → klik na koordinate ih kopira).
+
+### Kategorija korisnika (penzioner / RVI / sindikat)
+U listovima `PODACI_*` postoji kolona **Kategorija**. U izvornim `.xls`
+spiskovima te podjele nema, pa su svi upisani kao `PENZIONER` – promijeni gdje
+treba. **🪵 Drva → Postavi izbor kategorija** ubaci padajući izbor
+(PENZIONER / RVI / SINDIKAT / OSTALO) da se ne kuca ručno.
+
+Kategorija se vidi uz svako ime na karti i u spisku, a na javnoj stranici
+postoji i filter po kategoriji (tada se i kubici zbrajaju samo za nju).
 
 ### Kontrola duplikata
 **🪵 Drva → Provjeri moguće duplikate ulica** ispisuje slične nazive u istom

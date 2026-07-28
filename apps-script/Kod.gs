@@ -23,6 +23,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Upiši isporuku za označeni red', 'upisiIsporuku')
     .addItem('Provjeri moguće duplikate ulica', 'provjeriDuplikate')
+    .addItem('Postavi izbor kategorija (penzioner/RVI/sindikat)', 'postaviKategorije')
     .addToUi();
 }
 
@@ -277,6 +278,8 @@ function podaciZaKartu() {
       v.isporuceno += isporuceno;
       v.korisnici.push({
         ime: String(r[t.i['Prezime']]) + ' ' + String(r[t.i['Ime']]),
+        kategorija: t.i['Kategorija'] === undefined ? 'PENZIONER'
+          : (String(r[t.i['Kategorija']] || 'PENZIONER').trim().toUpperCase()),
         telefon: String(r[t.i['Telefon']] || ''),
         odobreno: odobreno,
         isporuceno: isporuceno,
@@ -408,6 +411,40 @@ function upisiIsporuku() {
     list.getRange(red, t.i['Otpremnica'] + 1).setValue(otpremnica.getResponseText());
   }
   osvjeziSazetke();
+}
+
+/* ----------------------------------------------------------- kategorije */
+
+var KATEGORIJE = ['PENZIONER', 'RVI', 'SINDIKAT', 'OSTALO'];
+
+/** Padajući izbor u koloni "Kategorija" na oba lista s podacima. */
+function postaviKategorije() {
+  var pravilo = SpreadsheetApp.newDataValidation()
+    .requireValueInList(KATEGORIJE, true).setAllowInvalid(false).build();
+  var dodano = 0;
+  VRSTE.forEach(function (vrsta) {
+    var list = list_(vrsta.podaci);
+    var t = citaj_(vrsta.podaci);
+    var kolona = t.i['Kategorija'];
+    if (kolona === undefined) {                 // stara tabela bez kolone
+      kolona = t.zaglavlje.length;
+      list.insertColumnAfter(list.getLastColumn());
+      list.getRange(1, kolona + 1).setValue('Kategorija').setFontWeight('bold')
+        .setBackground('#e8eaed');
+    }
+    var brojRedova = Math.max(list.getLastRow() - 1, 1);
+    var opseg = list.getRange(2, kolona + 1, brojRedova, 1);
+    opseg.setDataValidation(pravilo);
+    opseg.getValues().forEach(function (r, i) {   // prazna polja -> PENZIONER
+      if (String(r[0]).trim() === '') {
+        list.getRange(i + 2, kolona + 1).setValue('PENZIONER');
+        dodano++;
+      }
+    });
+  });
+  SpreadsheetApp.getUi().alert('Kategorije su spremne (' + KATEGORIJE.join(', ') +
+    ').\nPopunjeno praznih polja: ' + dodano +
+    '\n\nPromijeni kategoriju gdje treba, pa pokreni "Osvježi sažetke".');
 }
 
 /* -------------------------------------------- kontrola preostalih duplikata */

@@ -97,6 +97,41 @@ function boja(z) {
   return z.isporuceno > 0.001 ? '#f9ab00' : '#d93025'; // u toku / nije počelo
 }
 
+function kratkaKategorija(k) {
+  return k === 'PENZIONER' ? 'penz.' : k === 'SINDIKAT' ? 'sind.' : (k || '').toLowerCase();
+}
+
+/** Kratak opis iznad markera: ulica, kubici i prva imena. */
+function tooltipHtml(tacka, z) {
+  var cekaju = z.korisnici.filter(function (r) { return r.k.preostalo > 0.001; });
+  var imena = (cekaju.length ? cekaju : z.korisnici).slice(0, 3).map(function (r) {
+    return r.k.ime + ' (' + kratkaKategorija(r.k.kategorija) + ')';
+  }).join(', ');
+  var ostatak = (cekaju.length ? cekaju : z.korisnici).length - 3;
+  return '<strong>' + tacka.ulica + '</strong> · ' + tacka.mjesto +
+    '<br>ostalo <strong>' + z.preostalo + ' m3</strong>, isporučeno ' +
+    z.isporuceno + ' m3' + (imena ? '<br>' + (cekaju.length ? 'čekaju: ' : '') +
+    imena + (ostatak > 0 ? ' +' + ostatak : '') : '');
+}
+
+/** Puni spisak imena u oblačiću na karti. */
+function popupHtml(tacka, z) {
+  var html = '<div style="font-size:12px"><strong>' + tacka.ulica + ', ' +
+    tacka.mjesto + '</strong><br>ostalo ' + z.preostalo + ' m3 · isporučeno ' +
+    z.isporuceno + ' m3<table style="margin-top:4px">';
+  z.korisnici.slice().sort(function (a, b) { return b.k.preostalo - a.k.preostalo; })
+    .forEach(function (r) {
+      var k = r.k, gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
+      html += '<tr><td>' + (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime +
+        '</strong> <span style="color:#666">' + kratkaKategorija(k.kategorija) +
+        ' · ' + r.vrsta + '</span></td><td>' +
+        (gotov ? 'isporučeno ' + k.isporuceno + ' m3' +
+                 (k.datum ? ' (' + k.datum + ')' : '')
+               : 'ostalo ' + k.preostalo + ' m3') + '</td></tr>';
+    });
+  return html + '</table></div>';
+}
+
 function crtaj() {
   sloj.clearLayers();
   var samoPreostalo = document.getElementById('samoPreostalo').checked;
@@ -114,8 +149,8 @@ function crtaj() {
       radius: Math.max(7, Math.min(26, 6 + Math.sqrt(z.preostalo) * 3)),
       color: '#fff', weight: 2, fillColor: boja(z), fillOpacity: 0.85
     }).addTo(sloj);
-    marker.bindTooltip(tacka.ulica + ' (' + tacka.mjesto + '): ostalo ' +
-      z.preostalo + ' m3', { direction: 'top' });
+    marker.bindTooltip(tooltipHtml(tacka, z), { direction: 'top' });
+    marker.bindPopup(popupHtml(tacka, z), { maxWidth: 340, maxHeight: 320 });
     marker.on('click', function () { prikaziDetalje(tacka, z); });
     redovi.push({ tacka: tacka, z: z, marker: marker });
   });
@@ -160,7 +195,8 @@ function prikaziDetalje(tacka, z) {
     var gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
     html += '<tr><td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
       (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime + '</strong><br>' +
-      '<span style="color:#666">' + r.vrsta + (k.telefon ? ' · ' + k.telefon : '') +
+      '<span style="color:#666">' + kratkaKategorija(k.kategorija) + ' · ' +
+      r.vrsta + (k.telefon ? ' · ' + k.telefon : '') +
       '</span></td><td>' + (gotov
         ? 'isporučeno ' + k.isporuceno + ' m3' + (k.datum ? '<br>' + k.datum : '') +
           (k.otpremnica ? '<br>otpr. ' + k.otpremnica : '')

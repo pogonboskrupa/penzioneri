@@ -41,7 +41,12 @@ VRSTE = [
 KOLONE = ["rb", "maticni", "prezime", "ime", "mjesto", "ulica", "telefon",
           "kol", "datum", "otpremnica", "kolicina", "oznaka"]
 
-REDOSLIJED = ["Vrsta", "Redni broj", "Matični broj", "Prezime", "Ime", "Mjesto",
+# Kategorija korisnika; u izvornim spiskovima nije zapisana, pa svi kreću kao
+# PENZIONER, a u Google Sheetsu se po potrebi mijenja u RVI ili SINDIKAT.
+PODRAZUMIJEVANA_KATEGORIJA = "PENZIONER"
+
+REDOSLIJED = ["Vrsta", "Redni broj", "Matični broj", "Prezime", "Ime", "Kategorija",
+              "Mjesto",
               "Ulica", "Telefon", "Odobreno m3", "Isporučeno m3", "Preostalo m3",
               "Status", "Datum isporuke", "Otpremnica", "Napomena",
               "Adresa ključ", "Original mjesto", "Original ulica"]
@@ -74,6 +79,7 @@ def ucitaj(vrsta, putanja, u_m3):
             if pd.notna(r.maticni) else "",
             "Prezime": prezime,
             "Ime": ime,
+            "Kategorija": PODRAZUMIJEVANA_KATEGORIJA,
             "Mjesto": normalizuj_mjesto(r.mjesto),
             "_ulica_kljuc": normalizuj_ulicu(r.ulica) or "(BEZ ULICE)",
             "_ulica_original": str(r.ulica).strip() if pd.notna(r.ulica) else "",
