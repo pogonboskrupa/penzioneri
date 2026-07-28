@@ -145,10 +145,12 @@ liste ulica):
   nađe „Sokak”; upišeš „Bihacka” bez dijakritike i nađe „Bihaćka”);
 - bez upisanog teksta odjeljak sam pokaže **sve adrese koje još nemaju
   lokaciju** – to je prvo mjesto za provjeru poslije geokodiranja;
-- klikni **Postavi pin** (nova adresa) ili **Pomjeri pin** (već ima
-  lokaciju, ali je pogrešna) → traka pri vrhu kaže „Klikni na kartu…” →
-  klikni tačno mjesto na karti → pin se odmah snimi u `ULICE_GEO` s oznakom
-  „ručno” i geokodiranje ga više neće dirati.
+- klikni **📍 Postavi adresu na karti** (nova adresa) ili
+  **📍 Promijeni adresu na karti** (već ima lokaciju, ali je pogrešna) →
+  na karti se pojavi pin koji **povučeš mišem ili prstom** tačno na mjesto
+  gdje treba da bude → klikni **✓ Snimi lokaciju**. Pin se upiše u
+  `ULICE_GEO` s oznakom „ručno” i geokodiranje ga više neće dirati.
+  (Dugme **Otkaži** poništava bez snimanja.)
 
 Nema posebne lozinke ni dozvole za ovo – ko god ima pristup karti (u
 Sheetsu ili na javnoj stranici) može ispraviti adresu, isto kao što može i

@@ -48,8 +48,9 @@
     <label style="margin-left:12px"><input type="checkbox" id="samoPreostalo"> Prikaži samo ulice gdje je ostalo</label>
     <span class="zbir" id="zbir"></span>
   </div>
-  <div id="trakaPostavljanja">Klikni na kartu tačno gdje treba da bude pin - odmah se snima.
-    <button id="otkaziPostavljanje" style="margin-left:10px">Otkaži</button></div>
+  <div id="trakaPostavljanja">Povuci pin na tačnu lokaciju, pa klikni Snimi.
+    <button id="snimiPostavljanje" style="margin-left:10px">✓ Snimi lokaciju</button>
+    <button id="otkaziPostavljanje" style="margin-left:6px">Otkaži</button></div>
   <div id="okvir">
     <div id="karta"></div>
     <div id="bocna">
@@ -170,32 +171,13 @@ function crtajRijesiAdrese() {
     d.innerHTML = '<strong>' + a.ulica + '</strong> <span style="color:#666">' + a.mjesto +
       '</span>' + (a.imaLokaciju ? '' : ' <span style="color:#b26a00">(nema lokaciju)</span>') +
       '<button data-kljuc="' + a.kljuc.replace(/"/g, '&quot;') + '">' +
-      (a.imaLokaciju ? 'Pomjeri pin' : 'Postavi pin') + '</button>';
+      (a.imaLokaciju ? '📍 Promijeni adresu na karti' : '📍 Postavi adresu na karti') + '</button>';
     d.querySelector('button').onclick = function (ev) { pokreniPostavljanje(a.kljuc, ev.target); };
     el.appendChild(d);
   });
 }
 
 document.getElementById('trazicAdresa').oninput = crtajRijesiAdrese;
-
-/** Uključuje "klikni na kartu" način rada - koristi se za postavljanje i za
- * ispravku (pomjeranje) već postavljenog pina, uvijek iz odjeljka "Riješi adrese". */
-function pokreniPostavljanje(kljuc, dugme) {
-  resetujDugmadPostavljanja_();
-  if (postavljaSeKljuc === kljuc) {           // ponovni klik - otkaži
-    zavrsiPostavljanje();
-    return;
-  }
-  karta.closePopup();
-  postavljaSeKljuc = kljuc;
-  if (dugme) {
-    dugme.classList.add('aktivno');
-    dugme.setAttribute('data-tekst-prije', dugme.textContent);
-    dugme.textContent = 'Klikni na kartu…';
-  }
-  document.getElementById('trakaPostavljanja').style.display = 'block';
-  document.getElementById('karta').style.cursor = 'crosshair';
-}
 
 function resetujDugmadPostavljanja_() {
   document.querySelectorAll('.adresa-stavka button').forEach(function (b) {
@@ -205,17 +187,44 @@ function resetujDugmadPostavljanja_() {
   });
 }
 
-function zavrsiPostavljanje() {
-  postavljaSeKljuc = null;
-  document.getElementById('trakaPostavljanja').style.display = 'none';
-  document.getElementById('karta').style.cursor = '';
+/** Ikona s podrškom za povlačenje (Leafletov circleMarker se ne može vući). */
+var IKONA_POVUCI = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+});
+var privremeniMarker = null;
+
+/** Klik na "Promijeni/Postavi adresu na karti" - stavi pin koji se vuče mišem. */
+function pokreniPostavljanje(kljuc, dugme) {
   resetujDugmadPostavljanja_();
+  if (postavljaSeKljuc === kljuc) {           // ponovni klik - otkaži
+    zavrsiPostavljanje();
+    return;
+  }
+  if (privremeniMarker) { karta.removeLayer(privremeniMarker); privremeniMarker = null; }
+  karta.closePopup();
+
+  var tacka = SVE.filter(function (t) { return t.kljuc === kljuc; })[0];
+  var pocetna = (tacka && tacka.lat !== null) ? [tacka.lat, tacka.lng] : karta.getCenter();
+  privremeniMarker = L.marker(pocetna, { draggable: true, icon: IKONA_POVUCI, zIndexOffset: 1000 })
+    .addTo(karta)
+    .bindTooltip('Povuci me na tačnu lokaciju', { permanent: true, direction: 'top' });
+  karta.setView(pocetna, Math.max(karta.getZoom(), 16));
+
+  postavljaSeKljuc = kljuc;
+  if (dugme) {
+    dugme.classList.add('aktivno');
+    dugme.setAttribute('data-tekst-prije', dugme.textContent);
+    dugme.textContent = 'Povuci pin na karti…';
+  }
+  document.getElementById('trakaPostavljanja').style.display = 'block';
 }
 
-document.getElementById('otkaziPostavljanje').onclick = zavrsiPostavljanje;
-
-karta.on('click', function (e) {
-  if (!postavljaSeKljuc) return;
+document.getElementById('snimiPostavljanje').onclick = function () {
+  if (!privremeniMarker || !postavljaSeKljuc) return;
+  var ll = privremeniMarker.getLatLng();
   var kljuc = postavljaSeKljuc;
   google.script.run.withSuccessHandler(function () {
     zavrsiPostavljanje();
@@ -223,8 +232,17 @@ karta.on('click', function (e) {
   }).withFailureHandler(function (err) {
     alert('Nije spremljeno: ' + err.message);
     zavrsiPostavljanje();
-  }).spremiRucnuKoordinatu(kljuc, e.latlng.lat, e.latlng.lng);
-});
+  }).spremiRucnuKoordinatu(kljuc, ll.lat, ll.lng);
+};
+
+function zavrsiPostavljanje() {
+  postavljaSeKljuc = null;
+  if (privremeniMarker) { karta.removeLayer(privremeniMarker); privremeniMarker = null; }
+  document.getElementById('trakaPostavljanja').style.display = 'none';
+  resetujDugmadPostavljanja_();
+}
+
+document.getElementById('otkaziPostavljanje').onclick = zavrsiPostavljanje;
 
 function odabranaVrsta() {
   return document.querySelector('input[name=vrsta]:checked').value;
