@@ -17,6 +17,7 @@ var LIST_MJESTA = 'MJESTA';
 var LIST_GEO = 'ULICE_GEO';
 var LIST_ISPORUKE = 'ISPORUKE';
 var LIST_PREGLED = 'PREGLED';
+var LIST_REKAP = 'REKAP';
 
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
@@ -27,6 +28,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Upiši isporuku za označeni red', 'upisiIsporuku')
     .addItem('Otvori zbirni pregled', 'otvoriPregled')
+    .addItem('Otvori rekap (grupe + mjeseci)', 'otvoriRekap')
     .addSeparator()
     .addSubMenu(ui.createMenu('Provjere')
       .addItem('Mogući duplikati ulica', 'provjeriDuplikate')
@@ -187,6 +189,7 @@ function osvjeziSazetke() {
   osvjeziMjesta_(poVrsti);
   osvjeziGeo_(poVrsti, sveUlice, geoPostojeci);
   if (SpreadsheetApp.getActive().getSheetByName(LIST_PREGLED)) osvjeziPregled_();
+  if (SpreadsheetApp.getActive().getSheetByName(LIST_REKAP)) osvjeziRekap_();
   SpreadsheetApp.getActive().toast('Sažeci osvježeni.', 'Drva', 5);
 }
 
@@ -918,6 +921,163 @@ function osvjeziPregled_() {
   return s;
 }
 
+/* ------------------------------------------------------------ rekap */
+
+/**
+ * Pretvara vrijednost kolone "Datum isporuke" (Date objekat ili tekst
+ * tipa "23.07.2026", "18.06.2026.") u ključ mjeseca "yyyy-MM". Vraća null
+ * ako datum nije prepoznat (npr. upisan bez godine) - takav red se ne
+ * broji u mjesečnom pregledu, ali ostaje uračunat u ukupnim zbirovima.
+ */
+function mjesecKljuc_(v) {
+  if (!v) return null;
+  var d = null;
+  if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v)) {
+    d = v;
+  } else {
+    var m = String(v).trim().match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/);
+    if (m) d = new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
+  }
+  return d ? Utilities.formatDate(d, 'Europe/Sarajevo', 'yyyy-MM') : null;
+}
+
+var NAZIVI_MJESECI_ = ['januar', 'februar', 'mart', 'april', 'maj', 'juni',
+  'juli', 'avgust', 'septembar', 'oktobar', 'novembar', 'decembar'];
+
+function opisMjeseca_(kljuc) {
+  var dijelovi = kljuc.split('-');
+  return NAZIVI_MJESECI_[parseInt(dijelovi[1], 10) - 1] + ' ' + dijelovi[0];
+}
+
+function otvoriRekap() {
+  osvjeziRekap_();
+  SpreadsheetApp.getActive().setActiveSheet(list_(LIST_REKAP));
+}
+
+/**
+ * List REKAP: isporučeno/neisporučeno po grupama (penzioneri, RVI,
+ * porodice šehida, sindikat...) i otprema po mjesecima za iste grupe.
+ * Mjesečni podaci dolaze iz kolone "Datum isporuke" u PODACI_* (datum
+ * zadnje/jedine isporuke za tog korisnika) - za korisnike sa više
+ * djelimičnih isporuka to je mjesec posljednje, tačniju historiju po
+ * datumu svake pojedinačne isporuke ima list ISPORUKE.
+ */
+function osvjeziRekap_() {
+  var ss = SpreadsheetApp.getActive();
+  var s = ss.getSheetByName(LIST_REKAP);
+  if (!s) {
+    s = ss.insertSheet(LIST_REKAP, 0);
+  } else {
+    s.getCharts().forEach(function (g) { s.removeChart(g); });
+    s.clear();
+  }
+
+  // --- zbir po grupama (isporučeno/neisporučeno) ---
+  var poGrupi = {};
+  var mjeseci = {};  // { 'yyyy-MM': { naziv_grupe: isporuceno_m3 } }
+  VRSTE.forEach(function (vrsta) {
+    var t = citaj_(vrsta.podaci);
+    var z = { korisnika: 0, odobreno: 0, isporuceno: 0, preostalo: 0, gotovih: 0 };
+    t.redovi.forEach(function (r) {
+      var odobreno = broj_(r[t.i['Odobreno m3']]);
+      var isporuceno = broj_(r[t.i['Isporučeno m3']]);
+      if (!odobreno && !isporuceno) return;
+      var preostalo = Math.max(okrugli_(odobreno - isporuceno), 0);
+      z.korisnika++; z.odobreno += odobreno; z.isporuceno += isporuceno; z.preostalo += preostalo;
+      if (preostalo <= 0.001 && isporuceno > 0) z.gotovih++;
+
+      if (isporuceno > 0.001 && t.i['Datum isporuke'] !== undefined) {
+        var kljuc = mjesecKljuc_(r[t.i['Datum isporuke']]);
+        if (kljuc) {
+          if (!mjeseci[kljuc]) mjeseci[kljuc] = {};
+          mjeseci[kljuc][vrsta.naziv] = okrugli_((mjeseci[kljuc][vrsta.naziv] || 0) + isporuceno);
+        }
+      }
+    });
+    poGrupi[vrsta.naziv] = z;
+  });
+
+  s.getRange('A1').setValue('REKAP – ISPORUKA OGRJEVA PO GRUPAMA')
+    .setFontSize(16).setFontWeight('bold');
+  s.getRange('A2').setValue('Osvježeno: ' +
+    Utilities.formatDate(new Date(), 'Europe/Sarajevo', 'dd.MM.yyyy. HH:mm'))
+    .setFontColor('#5f6368');
+
+  // --- tabela 1: isporučeno / neisporučeno po grupama ---
+  s.getRange('A4').setValue('Isporučena i neisporučena drvna masa po grupama')
+    .setFontWeight('bold').setFontSize(13);
+  var zaglavlje1 = ['Grupa', 'Korisnika', 'Odobreno m³', 'Isporučeno m³',
+    'Neisporučeno m³', 'Realizacija'];
+  s.getRange(5, 1, 1, zaglavlje1.length).setValues([zaglavlje1])
+    .setFontWeight('bold').setBackground('#e8eaed');
+  var ukupno1 = { korisnika: 0, odobreno: 0, isporuceno: 0, preostalo: 0 };
+  VRSTE.forEach(function (vrsta, i) {
+    var z = poGrupi[vrsta.naziv];
+    var postotak = z.odobreno ? Math.round(z.isporuceno / z.odobreno * 100) : 0;
+    s.getRange(6 + i, 1, 1, zaglavlje1.length).setValues([[vrsta.naziv, z.korisnika,
+      okrugli_(z.odobreno), okrugli_(z.isporuceno), okrugli_(z.preostalo), postotak + '%']]);
+    ukupno1.korisnika += z.korisnika; ukupno1.odobreno += z.odobreno;
+    ukupno1.isporuceno += z.isporuceno; ukupno1.preostalo += z.preostalo;
+  });
+  var redUkupno1 = 6 + VRSTE.length;
+  var postotakUkupno = ukupno1.odobreno ? Math.round(ukupno1.isporuceno / ukupno1.odobreno * 100) : 0;
+  s.getRange(redUkupno1, 1, 1, zaglavlje1.length).setValues([['UKUPNO', ukupno1.korisnika,
+    okrugli_(ukupno1.odobreno), okrugli_(ukupno1.isporuceno), okrugli_(ukupno1.preostalo),
+    postotakUkupno + '%']]).setFontWeight('bold');
+
+  var grafikon1 = s.newChart().setChartType(Charts.ChartType.COLUMN)
+    .addRange(s.getRange(5, 1, VRSTE.length + 1, 1))                          // Grupa
+    .addRange(s.getRange(5, 4, VRSTE.length + 1, 2))                          // Isporučeno, Neisporučeno
+    .setPosition(6, 8, 0, 0)
+    .setOption('title', 'Isporučeno i neisporučeno po grupama (m³)')
+    .setOption('width', 560).setOption('height', 320)
+    .setOption('colors', ['#188038', '#d93025'])
+    .setOption('isStacked', true)
+    .build();
+  s.insertChart(grafikon1);
+
+  // --- tabela 2: otprema po mjesecima za iste grupe ---
+  var redNaslov2 = redUkupno1 + 3;
+  s.getRange(redNaslov2, 1).setValue('Otprema po mjesecima, po grupama (m³ isporučeno)')
+    .setFontWeight('bold').setFontSize(13);
+  var redZaglavlje2 = redNaslov2 + 1;
+  var zaglavlje2 = ['Mjesec'].concat(VRSTE.map(function (v) { return v.naziv; }), ['UKUPNO']);
+  s.getRange(redZaglavlje2, 1, 1, zaglavlje2.length).setValues([zaglavlje2])
+    .setFontWeight('bold').setBackground('#e8eaed');
+
+  var kljucevi = Object.keys(mjeseci).sort();
+  if (kljucevi.length) {
+    var redoviMjeseci = kljucevi.map(function (k) {
+      var red = [opisMjeseca_(k)];
+      var ukupnoMjesec = 0;
+      VRSTE.forEach(function (v) {
+        var iznos = okrugli_((mjeseci[k][v.naziv] || 0));
+        red.push(iznos);
+        ukupnoMjesec += iznos;
+      });
+      red.push(okrugli_(ukupnoMjesec));
+      return red;
+    });
+    s.getRange(redZaglavlje2 + 1, 1, redoviMjeseci.length, zaglavlje2.length)
+      .setValues(redoviMjeseci);
+
+    var grafikon2 = s.newChart().setChartType(Charts.ChartType.COLUMN)
+      .addRange(s.getRange(redZaglavlje2, 1, redoviMjeseci.length + 1, VRSTE.length + 1))
+      .setPosition(redZaglavlje2, 8, 0, 0)
+      .setOption('title', 'Otprema po mjesecima, po grupama (m³)')
+      .setOption('width', 700).setOption('height', 340)
+      .setOption('isStacked', true)
+      .build();
+    s.insertChart(grafikon2);
+  } else {
+    s.getRange(redZaglavlje2 + 1, 1).setValue(
+      '(još nema isporuka s prepoznatim datumom - upiši datum uz isporuku)');
+  }
+
+  s.setColumnWidth(1, 190);
+  for (var c = 2; c <= zaglavlje2.length; c++) s.setColumnWidth(c, 140);
+}
+
 /* --------------------------------------------- automatsko osvježavanje */
 
 var FUNKCIJA_OKIDACA = 'dnevnoOsvjezavanje';
@@ -926,6 +1086,7 @@ var FUNKCIJA_OKIDACA = 'dnevnoOsvjezavanje';
 function dnevnoOsvjezavanje() {
   osvjeziSazetke();
   osvjeziPregled_();
+  osvjeziRekap_();
 }
 
 function ukljuciDnevnoOsvjezavanje() {

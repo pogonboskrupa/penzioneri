@@ -199,6 +199,29 @@ Tako ostaje trag i o djelimičnim isporukama (npr. 5 m³ u junu, 5 m³ u augustu
 počelo), tabelom po vrsti ogrjeva i grafikonom isporučeno/preostalo po mjestu.
 Osvježava se i sam pri svakom „Osvježi sažetke".
 
+### Rekap po grupama i mjesecima (list `REKAP`)
+**🪵 Drva → Otvori rekap (grupe + mjeseci)** pravi/osvježi list `REKAP` sa
+dvije tabele i dva grafikona:
+
+1. **Isporučena i neisporučena drvna masa po grupama** – jedan red po grupi
+   (penzioneri-cijepano, penzioneri-u dugom, RVI, porodice šehida, sindikat)
+   sa brojem korisnika, odobrenim, isporučenim, preostalim m³ i procentom
+   realizacije, plus red UKUPNO i stubičasti grafikon isporučeno/neisporučeno.
+2. **Otprema po mjesecima, po grupama** – tabela mjesec × grupa (m³
+   isporučeno tog mjeseca za tu grupu) i grafikon ispod, korisno za praćenje
+   dinamike tokom sezone (npr. koliko je otpremljeno u julu vs. avgustu).
+
+Mjesečni podaci se računaju iz kolone **„Datum isporuke”** u `PODACI_*`
+(prepoznaje i datum kao pravi datum i kao tekst tipa „23.07.2026.”). Korisnik
+kod kojeg je taj datum prazan ili bez godine ulazi u ukupne zbirove u tabeli
+1, ali se ne pojavljuje u mjesečnoj tabeli 2 – zato je važno da datum
+isporuke bude popunjen (automatski se upisuje čim upišeš količinu u
+„Isporučeno m3”, vidi napomenu o automatskom upisu iznad). Za korisnike s
+više djelimičnih isporuka mjesečna tabela pokazuje mjesec **posljednje**
+isporuke s cijelim dotad isporučenim iznosom, ne raspodjelu po mjesecima —
+za potpuno tačnu historiju po datumu svake pojedinačne isporuke pogledaj
+list `ISPORUKE`. Rekap se osvježava i sam pri svakom „Osvježi sažetke".
+
 ### Zaštita i automatika (meni `Podešavanja`)
 - **Zaključaj računate kolone** – `Preostalo m3` i `Status` računa skripta, pa
   ih ova stavka zaštiti od ručne izmjene (vlasnik i dalje može, skripta radi
