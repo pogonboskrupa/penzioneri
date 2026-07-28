@@ -12,4 +12,6 @@ Alati za praćenje isporuke drva penzionerima (Udruženje penzionera Bosanska Kr
 | `izlaz/` | `PENZIONERI_DRVA.xlsx` + CSV listovi za uvoz u Google Sheets |
 | `apps-script/` | `Kod.gs` i `Karta.html` – meni i karta unutar Google Sheetsa |
 
+Javna stranica (uvijek aktuelno stanje iz tabele): `apps-script/Stranica.html` + `docs/` za GitHub Pages.
+
 Uputstvo korak po korak: **[UPUTSTVO.md](UPUTSTVO.md)**

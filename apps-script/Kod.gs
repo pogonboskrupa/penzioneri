@@ -250,12 +250,12 @@ function podaciZaKartu() {
   var tacke = {};
   geo.redovi.forEach(function (r) {
     var lat = r[geo.i['Lat']], lng = r[geo.i['Lng']];
-    if (lat === '' || lng === '') return;
+    var imaXY = lat !== '' && lng !== '';
     tacke[String(r[geo.i['Adresa ključ']]).trim()] = {
       mjesto: r[geo.i['Mjesto']],
       ulica: r[geo.i['Ulica']],
-      lat: broj_(lat),
-      lng: broj_(lng),
+      lat: imaXY ? broj_(lat) : null,   // bez koordinata: samo u spisku, ne na karti
+      lng: imaXY ? broj_(lng) : null,
       vrste: {}
     };
   });
@@ -301,6 +301,67 @@ function podaciZaKartu() {
       return t;
     }),
     bezKoordinata: bezKoordinata
+  };
+}
+
+/* ------------------------------------------- javna stranica (web aplikacija) */
+
+/**
+ * Otvara se na URL-u koji dobiješ preko "Deploy -> New deployment -> Web app".
+ * Podaci se čitaju iz tabele u trenutku otvaranja stranice, pa je prikaz
+ * uvijek onakav kakva je tabela.
+ *
+ * Parametri u URL-u:
+ *   ?telefoni=0   sakriva brojeve telefona (za javno dijeljenje linka)
+ */
+function doGet(e) {
+  var param = (e && e.parameter) || {};
+  var t = HtmlService.createTemplateFromFile('Stranica');
+  t.prikaziTelefone = param.telefoni !== '0';
+  return t.evaluate()
+    .setTitle('Isporuka ogrjeva - Udruženje penzionera Bosanska Krupa')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/** Sve što stranici treba: zbirovi, ulice s koordinatama i spisak korisnika. */
+function javniPodaci(prikaziTelefone) {
+  var karta = podaciZaKartu();
+  var zbir = {};
+  VRSTE.forEach(function (vrsta) {
+    var t = citaj_(vrsta.podaci);
+    var z = { korisnika: 0, odobreno: 0, isporuceno: 0, preostalo: 0, gotovih: 0 };
+    t.redovi.forEach(function (r) {
+      var odobreno = broj_(r[t.i['Odobreno m3']]);
+      var isporuceno = broj_(r[t.i['Isporučeno m3']]);
+      if (!odobreno && !isporuceno) return;
+      var preostalo = Math.max(okrugli_(odobreno - isporuceno), 0);
+      z.korisnika++;
+      z.odobreno += odobreno;
+      z.isporuceno += isporuceno;
+      z.preostalo += preostalo;
+      if (preostalo <= 0.001 && isporuceno > 0) z.gotovih++;
+    });
+    ['odobreno', 'isporuceno', 'preostalo'].forEach(function (k) {
+      z[k] = okrugli_(z[k]);
+    });
+    zbir[vrsta.naziv] = z;
+  });
+
+  if (prikaziTelefone === false) {
+    karta.tacke.forEach(function (t) {
+      Object.keys(t.vrste).forEach(function (v) {
+        t.vrste[v].korisnici.forEach(function (k) { k.telefon = ''; });
+      });
+    });
+  }
+
+  return {
+    zbir: zbir,
+    tacke: karta.tacke,
+    bezKoordinata: karta.bezKoordinata,
+    osvjezeno: Utilities.formatDate(new Date(), 'Europe/Sarajevo',
+      'dd.MM.yyyy. HH:mm')
   };
 }
 

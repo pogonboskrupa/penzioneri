@@ -103,6 +103,7 @@ function crtaj() {
   var redovi = [], ukupnoPreostalo = 0, ukupnoIsporuceno = 0;
 
   SVE.forEach(function (tacka) {
+    if (tacka.lat === null || tacka.lng === null) return;  // nema koordinata
     var z = zbirZa(tacka);
     if (!z.korisnici.length) return;
     if (samoPreostalo && z.preostalo <= 0.001) return;

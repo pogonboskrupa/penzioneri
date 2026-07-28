@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Isporuka ogrjeva – Udruženje penzionera Bosanska Krupa</title>
+<style>
+  html, body { margin:0; height:100%; font-family: Arial, Helvetica, sans-serif; background:#f7f8fa; }
+  iframe { border:0; width:100%; height:100%; display:block; }
+  .uputa { max-width:640px; margin:60px auto; background:#fff; border:1px solid #e0e0e0;
+           border-radius:8px; padding:20px 24px; line-height:1.55; font-size:14px; }
+  code { background:#f1f3f4; padding:1px 5px; border-radius:4px; }
+</style>
+</head>
+<body>
+<script>
+/* ------------------------------------------------------------------
+   Ovdje zalijepi adresu web aplikacije iz Google Sheetsa:
+   Apps Script -> Deploy -> New deployment -> Web app -> kopiraj URL
+   (izgleda kao https://script.google.com/macros/s/AKfycb.../exec)
+
+   Dodaj "?telefoni=0" na kraj ako stranica treba biti javna bez telefona.
+------------------------------------------------------------------- */
+var ADRESA_APLIKACIJE = '';
+
+if (ADRESA_APLIKACIJE) {
+  var okvir = document.createElement('iframe');
+  okvir.src = ADRESA_APLIKACIJE;
+  okvir.allow = 'geolocation';
+  document.body.appendChild(okvir);
+} else {
+  document.body.innerHTML =
+    '<div class="uputa"><h2>Stranica još nije povezana s tabelom</h2>' +
+    '<p>U fajlu <code>docs/index.html</code> upiši adresu web aplikacije u red ' +
+    '<code>var ADRESA_APLIKACIJE = \'\';</code>.</p>' +
+    '<p>Adresu dobiješ u Google Sheetsu: <b>Proširenja → Apps Script → Deploy → ' +
+    'New deployment → Web app</b> (Execute as: <i>Me</i>, Who has access: ' +
+    '<i>Anyone with the link</i>), pa kopiraj <code>…/exec</code> link.</p>' +
+    '<p>Nakon toga stranica prikazuje <b>uvijek aktuelno stanje iz tabele</b> – ' +
+    'kad se u Sheetsu upiše isporuka, ovdje se vidi odmah po osvježavanju.</p></div>';
+}
+</script>
+</body>
+</html>

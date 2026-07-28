@@ -100,7 +100,40 @@ mjestu (npr. `Voloder` / `Volodor`). Ispravi naziv u `PODACI_*` i osvježi saže
 
 ---
 
-## 4. Ponovna priprema iz .xls fajlova (opcionalno)
+## 4. Javna stranica povezana s tabelom (web app + GitHub Pages)
+
+Stranica **ne drži svoju kopiju podataka** – svaki put čita tabelu, pa se svaka
+izmjena u Google Sheetsu odmah vidi na stranici (i sama se osvježava svakih 5 minuta).
+
+### 4.1 Objavi stranicu iz tabele
+1. U Apps Scriptu dodaj i treći fajl: **+ → HTML → `Stranica`** →
+   zalijepi `apps-script/Stranica.html` (uz već postojeće `Kod.gs` i `Karta`).
+2. Gore desno **Deploy → New deployment → tip: Web app**:
+   - *Execute as*: **Me** (tvoj nalog čita tabelu),
+   - *Who has access*: **Anyone with the link** (ili *Anyone within…* / samo ti).
+3. Kopiraj dobiveni link (`…/exec`) – to je već gotova stranica, radi i na telefonu.
+
+Na stranici su: kartice sa zbirovima (odvojeno cijepano / u dugom / ukupno),
+karta s bojama po statusu, spisak ulica sortiran po preostalim kubicima,
+pretraga po ulici, mjestu ili prezimenu, i detalji kome je isporučeno.
+
+> **Telefoni:** ako link dijeliš šire, koristi `…/exec?telefoni=0` – tada se
+> brojevi telefona ne prikazuju. Imena penzionera i količine su lični podaci,
+> pa link ne objavljuj javno bez potrebe (najbolje *Anyone with the link*
+> poslan samo vozaču i članovima uprave).
+
+### 4.2 (Opcionalno) GitHub Pages adresa
+Ako želiš lijepu stalnu adresu tipa `https://pogonboskrupa.github.io/penzioneri/`:
+1. U `docs/index.html` upiši svoj `…/exec` link u red `var ADRESA_APLIKACIJE = '';`.
+2. Na GitHubu: *Settings → Pages → Source: Deploy from a branch →
+   grana `main`, folder `/docs`*.
+
+Stranica na Pagesu je samo okvir koji prikazuje web aplikaciju – podaci i dalje
+dolaze direktno iz Google Sheetsa, ništa se ne kopira u repozitorij.
+
+---
+
+## 5. Ponovna priprema iz .xls fajlova (opcionalno)
 
 Ako stignu novi/ispravljeni `.xls` spiskovi, zamijeni ih u `podaci/` i pokreni:
 
