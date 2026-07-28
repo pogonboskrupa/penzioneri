@@ -112,6 +112,14 @@ Krupe) i da se snađe i kad je naziv ulice upisan približno:
    gdje treba (npr. gdje živi kupac) – pin se odmah snimi u `ULICE_GEO` s
    oznakom „ručno” i geokodiranje je više neće dirati.
 
+**Ako je pin na krivom mjestu** (svejedno da li je „približno” ili čak
+označen kao „ulica”, a Google je ipak pogodio pogrešnu lokaciju) – klikni na
+taj pin ili na ulicu u desnom spisku da otvoriš detalje, pa dugme
+**📍 Ispravi lokaciju** na dnu (u oblačiću markera ili u panelu s desne
+strane) → klikni na kartu tačno gdje treba da bude → pin se odmah pomjeri
+i snimi u `ULICE_GEO` s oznakom „ručno”. Ova ispravka je trajna: naredna
+pokretanja „Geokodiraj ulice” je više ne diraju.
+
 Ponovno pokretanje **Geokodiraj ulice** ne dira ulice već označene „ulica”
 ili „ručno” – samo pokušava poboljšati one označene „slično”, „naselje” ili
 „nesvrstano”. Na koju je ulicu nešto namapirano vidi se u koloni
