@@ -24,6 +24,7 @@ function onOpen() {
     .addItem('Upiši isporuku za označeni red', 'upisiIsporuku')
     .addItem('Provjeri moguće duplikate ulica', 'provjeriDuplikate')
     .addItem('Postavi izbor kategorija (penzioner/RVI/sindikat)', 'postaviKategorije')
+    .addItem('Postavi lozinku za pomjeranje pina na javnoj stranici', 'postaviLozinkuUredjivanja')
     .addToUi();
 }
 
@@ -383,6 +384,47 @@ function spremiRucnuKoordinatu(kljucAdrese, lat, lng) {
     }
   }
   throw new Error('Adresa nije nađena u ULICE_GEO: ' + kljucAdrese);
+}
+
+var SVOJSTVO_LOZINKE = 'LOZINKA_UREDJIVANJA';
+
+/** Postavlja/mijenja lozinku kojom javna stranica smije pomjerati pinove. */
+function postaviLozinkuUredjivanja() {
+  var ui = SpreadsheetApp.getUi();
+  var svojstva = PropertiesService.getScriptProperties();
+  var trenutna = svojstva.getProperty(SVOJSTVO_LOZINKE);
+  var odgovor = ui.prompt(
+    trenutna ? 'Lozinka je već postavljena' : 'Postavi lozinku',
+    'Upiši novu lozinku za pomjeranje pina na javnoj stranici ' +
+    '(ostavi prazno da isključiš uređivanje na javnoj stranici).',
+    ui.ButtonSet.OK_CANCEL);
+  if (odgovor.getSelectedButton() !== ui.Button.OK) return;
+  var lozinka = odgovor.getResponseText().trim();
+  if (lozinka) {
+    svojstva.setProperty(SVOJSTVO_LOZINKE, lozinka);
+    ui.alert('Lozinka je spremljena. Vozač/administrator je unosi samo jednom - ' +
+      'stranica je pamti dok ne zatvori karticu preglednika.');
+  } else {
+    svojstva.deleteProperty(SVOJSTVO_LOZINKE);
+    ui.alert('Uređivanje karte na javnoj stranici je isključeno (nema lozinke).');
+  }
+}
+
+/**
+ * Isto što i spremiRucnuKoordinatu, ali za javnu web stranicu (doGet) gdje
+ * je "Execute as: Me" - bez ove provjere bi svako s linkom mogao pomjerati
+ * pinove. Radi samo ako je lozinka prethodno postavljena u meniju.
+ */
+function javniSpremiRucnuKoordinatu(kljucAdrese, lat, lng, lozinka) {
+  var tacna = PropertiesService.getScriptProperties().getProperty(SVOJSTVO_LOZINKE);
+  if (!tacna) {
+    throw new Error('Uređivanje karte nije uključeno. U Sheetsu: 🪵 Drva → ' +
+      'Postavi lozinku za pomjeranje pina na javnoj stranici.');
+  }
+  if (String(lozinka || '') !== tacna) {
+    throw new Error('Pogrešna lozinka.');
+  }
+  return spremiRucnuKoordinatu(kljucAdrese, lat, lng);
 }
 
 /* ------------------------------------------------------------------ 3. karta */

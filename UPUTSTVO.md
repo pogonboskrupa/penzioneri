@@ -120,6 +120,20 @@ strane) → klikni na kartu tačno gdje treba da bude → pin se odmah pomjeri
 i snimi u `ULICE_GEO` s oznakom „ručno”. Ova ispravka je trajna: naredna
 pokretanja „Geokodiraj ulice” je više ne diraju.
 
+Ovo isto (spisak „Nesvrstano” + dugme „📍 Ispravi lokaciju” na svakoj ulici)
+postoji i na **javnoj stranici** (poglavlje 4), da vozač na terenu, ne samo
+administrator u Sheetsu, može ispraviti pogrešnu lokaciju sa telefona.
+
+### Lozinka za pomjeranje pina na javnoj stranici
+Javna stranica se izvršava kao ti (Execute as: Me), pa bi bez zaštite svako
+s linkom mogao mijenjati lokacije. Zato pomjeranje pina na javnoj stranici
+radi samo ako prije toga postaviš lozinku:
+**🪵 Drva → Postavi lozinku za pomjeranje pina na javnoj stranici** →
+upiši lozinku (ili ostavi prazno da potpuno isključiš uređivanje sa javne
+stranice). Osoba koja pomjera pin je unese samo jednom po pregledniku –
+stranica je pamti dok ne zatvori tu karticu. Pregled karte, spiska i
+tabele rade svima bez lozinke, ograničeno je samo pomjeranje pina.
+
 Ponovno pokretanje **Geokodiraj ulice** ne dira ulice već označene „ulica”
 ili „ručno” – samo pokušava poboljšati one označene „slično”, „naselje” ili
 „nesvrstano”. Na koju je ulicu nešto namapirano vidi se u koloni
@@ -144,6 +158,11 @@ mjestu (npr. `Voloder` / `Volodor`). Ispravi naziv u `PODACI_*` i osvježi saže
 
 Stranica **ne drži svoju kopiju podataka** – svaki put čita tabelu, pa se svaka
 izmjena u Google Sheetsu odmah vidi na stranici (i sama se osvježava svakih 5 minuta).
+
+Stranica je namjerno napravljena da izgleda i radi isto kao karta u
+Sheetsu (poglavlje 3) – iste boje, isti spisak „Nesvrstano", isto dugme
+„📍 Ispravi lokaciju" – samo je zaštićena lozinkom za pomjeranje pina
+(vidi gore) jer je javno dostupna.
 
 ### 4.1 Objavi stranicu iz tabele
 1. U Apps Scriptu dodaj i treći fajl: **+ → HTML → `Stranica`** →
