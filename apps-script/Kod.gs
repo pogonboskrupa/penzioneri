@@ -13,18 +13,29 @@ var VRSTE = [
 ];
 var LIST_MJESTA = 'MJESTA';
 var LIST_GEO = 'ULICE_GEO';
+var LIST_ISPORUKE = 'ISPORUKE';
+var LIST_PREGLED = 'PREGLED';
 
 function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('🪵 Drva')
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu('🪵 Drva')
     .addItem('1. Osvježi sažetke (ulice i mjesta)', 'osvjeziSazetke')
     .addItem('2. Geokodiraj ulice (za kartu)', 'geokodirajUlice')
     .addItem('3. Otvori kartu', 'otvoriKartu')
     .addSeparator()
     .addItem('Upiši isporuku za označeni red', 'upisiIsporuku')
-    .addItem('Provjeri moguće duplikate ulica', 'provjeriDuplikate')
-    .addItem('Postavi izbor kategorija (penzioner/RVI/sindikat)', 'postaviKategorije')
-    .addItem('Postavi lozinku za pomjeranje pina na javnoj stranici', 'postaviLozinkuUredjivanja')
+    .addItem('Otvori zbirni pregled', 'otvoriPregled')
+    .addSeparator()
+    .addSubMenu(ui.createMenu('Provjere')
+      .addItem('Mogući duplikati ulica', 'provjeriDuplikate')
+      .addItem('Dupli matični brojevi u istom spisku', 'provjeriDupleKorisnike'))
+    .addSubMenu(ui.createMenu('Podešavanja')
+      .addItem('Izbor kategorija (penzioner/RVI/sindikat)', 'postaviKategorije')
+      .addItem('Lozinka za pomjeranje pina na javnoj stranici', 'postaviLozinkuUredjivanja')
+      .addItem('Zaključaj računate kolone', 'zakljucajRacunateKolone')
+      .addItem('Otključaj računate kolone', 'otkljucajRacunateKolone')
+      .addItem('Uključi automatsko jutarnje osvježavanje', 'ukljuciDnevnoOsvjezavanje')
+      .addItem('Isključi automatsko osvježavanje', 'iskljuciDnevnoOsvjezavanje'))
     .addToUi();
 }
 
@@ -118,6 +129,7 @@ function osvjeziSazetke() {
 
   osvjeziMjesta_(poVrsti);
   osvjeziGeo_(poVrsti, sveUlice, geoPostojeci);
+  if (SpreadsheetApp.getActive().getSheetByName(LIST_PREGLED)) osvjeziPregled_();
   SpreadsheetApp.getActive().toast('Sažeci osvježeni.', 'Drva', 5);
 }
 
@@ -630,7 +642,256 @@ function upisiIsporuku() {
   if (otpremnica.getResponseText()) {
     list.getRange(red, t.i['Otpremnica'] + 1).setValue(otpremnica.getResponseText());
   }
+
+  zapisiIsporuku_({
+    vrsta: naziv === 'PODACI_CIJEPANO' ? 'CIJEPANO' : 'U DUGOM',
+    maticni: podaci[t.i['Matični broj']],
+    prezime: podaci[t.i['Prezime']],
+    ime: podaci[t.i['Ime']],
+    mjesto: podaci[t.i['Mjesto']],
+    ulica: podaci[t.i['Ulica']],
+    kolicina: kolicina,
+    otpremnica: otpremnica.getResponseText(),
+    ukupnoNakon: novoIsporuceno,
+    preostaloNakon: novoPreostalo
+  });
   osvjeziSazetke();
+}
+
+/* --------------------------------------------------- historija isporuka */
+
+var ZAGLAVLJE_ISPORUKE = ['Datum', 'Vrijeme', 'Vrsta', 'Matični broj', 'Prezime',
+  'Ime', 'Mjesto', 'Ulica', 'Isporučeno sada m3', 'Otpremnica',
+  'Ukupno isporučeno m3', 'Preostalo m3', 'Upisao'];
+
+function listIsporuka_() {
+  var ss = SpreadsheetApp.getActive();
+  var s = ss.getSheetByName(LIST_ISPORUKE);
+  if (!s) {
+    s = ss.insertSheet(LIST_ISPORUKE);
+    s.getRange(1, 1, 1, ZAGLAVLJE_ISPORUKE.length).setValues([ZAGLAVLJE_ISPORUKE])
+      .setFontWeight('bold').setBackground('#e8eaed');
+    s.setFrozenRows(1);
+  }
+  return s;
+}
+
+/**
+ * Svaka isporuka se dodaje kao novi red - tako se vidi i historija
+ * djelimičnih isporuka (npr. 5 m3 danas, 5 m3 za mjesec), što se u
+ * kolonama "Datum isporuke"/"Otpremnica" gubi jer čuvaju samo zadnju.
+ */
+function zapisiIsporuku_(p) {
+  var s = listIsporuka_();
+  var sada = new Date();
+  var korisnik = '';
+  try { korisnik = Session.getActiveUser().getEmail() || ''; } catch (e) { /* nema pristupa */ }
+  s.appendRow([
+    Utilities.formatDate(sada, 'Europe/Sarajevo', 'dd.MM.yyyy.'),
+    Utilities.formatDate(sada, 'Europe/Sarajevo', 'HH:mm'),
+    p.vrsta, p.maticni, p.prezime, p.ime, p.mjesto, p.ulica,
+    p.kolicina, p.otpremnica || '', p.ukupnoNakon, p.preostaloNakon, korisnik
+  ]);
+}
+
+/* ------------------------------------------- zaključavanje računatih kolona */
+
+// Ove kolone računa skripta; ručna izmjena bi razišla zbirove s podacima.
+var RACUNATE_KOLONE = ['Preostalo m3', 'Status'];
+var OPIS_ZASTITE = 'Računa skripta - ne mijenjati ručno';
+
+function zakljucajRacunateKolone() {
+  var zakljucano = [];
+  VRSTE.forEach(function (vrsta) {
+    var list = list_(vrsta.podaci);
+    var t = citaj_(vrsta.podaci);
+    var brojRedova = Math.max(list.getLastRow() - 1, 1);
+    RACUNATE_KOLONE.forEach(function (naziv) {
+      if (t.i[naziv] === undefined) return;
+      var opseg = list.getRange(2, t.i[naziv] + 1, brojRedova, 1);
+      var zastita = opseg.protect().setDescription(
+        OPIS_ZASTITE + ' (' + vrsta.podaci + ' / ' + naziv + ')');
+      // vlasnik ostaje urednik da skripta i dalje može pisati
+      zastita.removeEditors(zastita.getEditors().map(function (u) { return u.getEmail(); }));
+      if (zastita.canDomainEdit && zastita.canDomainEdit()) zastita.setDomainEdit(false);
+      zakljucano.push(vrsta.podaci + ' → ' + naziv);
+    });
+  });
+  SpreadsheetApp.getUi().alert('Zaključano (samo vlasnik može mijenjati):\n\n' +
+    zakljucano.join('\n') +
+    '\n\nOve kolone se same računaju pri "Osvježi sažetke" i upisu isporuke.');
+}
+
+function otkljucajRacunateKolone() {
+  var skinuto = 0;
+  SpreadsheetApp.getActive().getSheets().forEach(function (list) {
+    list.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function (z) {
+      if (String(z.getDescription()).indexOf(OPIS_ZASTITE) === 0) {
+        z.remove();
+        skinuto++;
+      }
+    });
+  });
+  SpreadsheetApp.getUi().alert('Skinuto zaštićenih opsega: ' + skinuto + '.');
+}
+
+/* ------------------------------------------------ provjera duplih korisnika */
+
+/** Isti matični broj dvaput u ISTOM spisku je greška unosa. */
+function provjeriDupleKorisnike() {
+  var nalazi = [];
+  VRSTE.forEach(function (vrsta) {
+    var t = citaj_(vrsta.podaci);
+    var vidjeni = {};
+    t.redovi.forEach(function (r, idx) {
+      var mb = String(r[t.i['Matični broj']] || '').trim();
+      if (!mb) return;
+      var opis = String(r[t.i['Prezime']]) + ' ' + String(r[t.i['Ime']]) +
+        ' (red ' + (idx + 2) + ')';
+      if (vidjeni[mb]) {
+        nalazi.push(vrsta.podaci + ' – MB ' + mb + ': ' + vidjeni[mb] + '  ↔  ' + opis);
+      } else {
+        vidjeni[mb] = opis;
+      }
+    });
+  });
+  SpreadsheetApp.getUi().alert(nalazi.length
+    ? 'Isti matični broj dvaput u istom spisku (' + nalazi.length + '):\n\n' +
+      nalazi.slice(0, 30).join('\n') +
+      (nalazi.length > 30 ? '\n…' : '') +
+      '\n\nProvjerite je li riječ o grešci unosa ili o dvije stavke istog korisnika.'
+    : 'Nema duplih matičnih brojeva unutar istog spiska.\n\n' +
+      '(Isti korisnik u oba spiska - cijepano i u dugom - je uredu i ne prijavljuje se.)');
+}
+
+/* --------------------------------------------------------- zbirni pregled */
+
+function otvoriPregled() {
+  osvjeziPregled_();
+  SpreadsheetApp.getActive().setActiveSheet(list_(LIST_PREGLED));
+}
+
+/** Jedan list s krupnim brojkama i grafikonom - za upravu. */
+function osvjeziPregled_() {
+  var ss = SpreadsheetApp.getActive();
+  var s = ss.getSheetByName(LIST_PREGLED);
+  if (!s) {
+    s = ss.insertSheet(LIST_PREGLED, 0);
+  } else {
+    s.getCharts().forEach(function (g) { s.removeChart(g); });
+    s.clear();
+  }
+
+  var zbir = {}, ukupno = { korisnika: 0, odobreno: 0, isporuceno: 0, preostalo: 0, gotovih: 0 };
+  VRSTE.forEach(function (vrsta) {
+    var t = citaj_(vrsta.podaci);
+    var z = { korisnika: 0, odobreno: 0, isporuceno: 0, preostalo: 0, gotovih: 0 };
+    t.redovi.forEach(function (r) {
+      var odobreno = broj_(r[t.i['Odobreno m3']]);
+      var isporuceno = broj_(r[t.i['Isporučeno m3']]);
+      if (!odobreno && !isporuceno) return;
+      var preostalo = Math.max(okrugli_(odobreno - isporuceno), 0);
+      z.korisnika++; z.odobreno += odobreno; z.isporuceno += isporuceno; z.preostalo += preostalo;
+      if (preostalo <= 0.001 && isporuceno > 0) z.gotovih++;
+    });
+    zbir[vrsta.naziv] = z;
+    ['korisnika', 'odobreno', 'isporuceno', 'preostalo', 'gotovih'].forEach(function (k) {
+      ukupno[k] += z[k];
+    });
+  });
+
+  var ulicaNijePoceto = 0, ulicaUkupno = 0;
+  VRSTE.forEach(function (vrsta) {
+    var u = SpreadsheetApp.getActive().getSheetByName(vrsta.ulice);
+    if (!u) return;
+    var t = citaj_(vrsta.ulice);
+    t.redovi.forEach(function (r) {
+      ulicaUkupno++;
+      if (String(r[t.i['Status ulice']]) === 'NIJE POČETO') ulicaNijePoceto++;
+    });
+  });
+
+  var postotak = ukupno.odobreno ? ukupno.isporuceno / ukupno.odobreno : 0;
+  s.getRange('A1').setValue('PREGLED ISPORUKE OGRJEVA')
+    .setFontSize(16).setFontWeight('bold');
+  s.getRange('A2').setValue('Osvježeno: ' +
+    Utilities.formatDate(new Date(), 'Europe/Sarajevo', 'dd.MM.yyyy. HH:mm'))
+    .setFontColor('#5f6368');
+
+  var kartice = [
+    ['PREOSTALO UKUPNO', okrugli_(ukupno.preostalo) + ' m³'],
+    ['ISPORUČENO', okrugli_(ukupno.isporuceno) + ' m³  (' + Math.round(postotak * 100) + '%)'],
+    ['ODOBRENO', okrugli_(ukupno.odobreno) + ' m³'],
+    ['KORISNIKA ČEKA', (ukupno.korisnika - ukupno.gotovih) + ' od ' + ukupno.korisnika],
+    ['ULICA NIJE POČETO', ulicaNijePoceto + ' od ' + ulicaUkupno]
+  ];
+  kartice.forEach(function (k, i) {
+    var red = 4 + i;
+    s.getRange(red, 1).setValue(k[0]).setFontColor('#5f6368').setFontSize(10);
+    s.getRange(red, 2).setValue(k[1]).setFontWeight('bold').setFontSize(14);
+  });
+
+  var pocetak = 4 + kartice.length + 1;
+  s.getRange(pocetak, 1, 1, 5).setValues([['Vrsta', 'Korisnika', 'Odobreno m³',
+    'Isporučeno m³', 'Preostalo m³']]).setFontWeight('bold').setBackground('#e8eaed');
+  VRSTE.forEach(function (vrsta, i) {
+    var z = zbir[vrsta.naziv];
+    s.getRange(pocetak + 1 + i, 1, 1, 5).setValues([[vrsta.naziv, z.korisnika,
+      okrugli_(z.odobreno), okrugli_(z.isporuceno), okrugli_(z.preostalo)]]);
+  });
+  var redUkupno = pocetak + 1 + VRSTE.length;
+  s.getRange(redUkupno, 1, 1, 5).setValues([['UKUPNO', ukupno.korisnika,
+    okrugli_(ukupno.odobreno), okrugli_(ukupno.isporuceno), okrugli_(ukupno.preostalo)]])
+    .setFontWeight('bold');
+
+  var mjesta = SpreadsheetApp.getActive().getSheetByName(LIST_MJESTA);
+  if (mjesta && mjesta.getLastRow() > 1) {
+    var grafikon = s.newChart().setChartType(Charts.ChartType.COLUMN)
+      .addRange(mjesta.getRange(1, 2, mjesta.getLastRow(), 1))              // Mjesto
+      .addRange(mjesta.getRange(1, 6, mjesta.getLastRow(), 2))              // Isporučeno, Preostalo
+      .setPosition(4, 7, 0, 0)
+      .setOption('title', 'Isporučeno i preostalo po mjestu (m³)')
+      .setOption('width', 620).setOption('height', 340)
+      .setOption('colors', ['#188038', '#d93025'])
+      .setOption('isStacked', true)
+      .build();
+    s.insertChart(grafikon);
+  }
+  s.setColumnWidth(1, 190);
+  s.setColumnWidth(2, 190);
+  return s;
+}
+
+/* --------------------------------------------- automatsko osvježavanje */
+
+var FUNKCIJA_OKIDACA = 'dnevnoOsvjezavanje';
+
+/** Pokreće se okidačem svako jutro; bez dijaloga jer nema korisnika. */
+function dnevnoOsvjezavanje() {
+  osvjeziSazetke();
+  osvjeziPregled_();
+}
+
+function ukljuciDnevnoOsvjezavanje() {
+  iskljuciOkidace_();
+  ScriptApp.newTrigger(FUNKCIJA_OKIDACA).timeBased().atHour(6).everyDays(1).create();
+  SpreadsheetApp.getUi().alert(
+    'Uključeno: svako jutro između 6 i 7 sati tabela sama osvježi sažetke i pregled.');
+}
+
+function iskljuciDnevnoOsvjezavanje() {
+  var broj = iskljuciOkidace_();
+  SpreadsheetApp.getUi().alert(broj
+    ? 'Automatsko osvježavanje je isključeno.'
+    : 'Automatsko osvježavanje nije ni bilo uključeno.');
+}
+
+function iskljuciOkidace_() {
+  var broj = 0;
+  ScriptApp.getProjectTriggers().forEach(function (o) {
+    if (o.getHandlerFunction() === FUNKCIJA_OKIDACA) { ScriptApp.deleteTrigger(o); broj++; }
+  });
+  return broj;
 }
 
 /* ----------------------------------------------------------- kategorije */

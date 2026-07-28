@@ -154,8 +154,33 @@ Kategorija se vidi uz svako ime na karti i u spisku, a na javnoj stranici
 postoji i filter po kategoriji (tada se i kubici zbrajaju samo za nju).
 
 ### Kontrola duplikata
-**🪵 Drva → Provjeri moguće duplikate ulica** ispisuje slične nazive u istom
+**🪵 Drva → Provjere → Mogući duplikati ulica** ispisuje slične nazive u istom
 mjestu (npr. `Voloder` / `Volodor`). Ispravi naziv u `PODACI_*` i osvježi sažetke.
+
+**Provjere → Dupli matični brojevi u istom spisku** javlja ako je isti matični
+broj dvaput u istom spisku (greška unosa). Isti korisnik u oba spiska
+(cijepano *i* u dugom) je uredu i ne prijavljuje se.
+
+### Historija isporuka (list `ISPORUKE`)
+Svaki upis preko **Upiši isporuku za označeni red** dodaje red u list
+`ISPORUKE`: datum, vrijeme, vrsta, korisnik, adresa, koliko je *tada*
+isporučeno, otpremnica, ukupno i preostalo nakon te isporuke, te ko je upisao.
+Tako ostaje trag i o djelimičnim isporukama (npr. 5 m³ u junu, 5 m³ u augustu),
+što kolone `Datum isporuke`/`Otpremnica` ne čuvaju jer pamte samo zadnju.
+
+### Zbirni pregled (list `PREGLED`)
+**🪵 Drva → Otvori zbirni pregled** pravi/osvježi list s krupnim brojkama
+(preostalo ukupno, % realizacije, koliko korisnika čeka, koliko ulica nije ni
+počelo), tabelom po vrsti ogrjeva i grafikonom isporučeno/preostalo po mjestu.
+Osvježava se i sam pri svakom „Osvježi sažetke".
+
+### Zaštita i automatika (meni `Podešavanja`)
+- **Zaključaj računate kolone** – `Preostalo m3` i `Status` računa skripta, pa
+  ih ova stavka zaštiti od ručne izmjene (vlasnik i dalje može, skripta radi
+  normalno). „Otključaj" skida zaštitu.
+- **Uključi automatsko jutarnje osvježavanje** – okidač koji svako jutro
+  (oko 6h) sam pokrene osvježavanje sažetaka i pregleda, pa su brojke tačne
+  i ako niko ne klikne ništa.
 
 ---
 
@@ -180,6 +205,19 @@ Sheetsu (poglavlje 3) – iste boje, isti spisak „Nesvrstano", isto dugme
 Na stranici su: kartice sa zbirovima (odvojeno cijepano / u dugom / ukupno),
 karta s bojama po statusu, spisak ulica sortiran po preostalim kubicima,
 pretraga po ulici, mjestu ili prezimenu, i detalji kome je isporučeno.
+
+Uz to, tri alata za rad na terenu:
+
+- **📍 Moja lokacija** – uzme GPS poziciju iz telefona i **presloži spisak po
+  blizini**: prvo najbliže ulice u kojima je još ostalo, sa razdaljinom
+  („350 m od tebe"). Plava tačka pokazuje gdje si. Ponovni klik isključuje.
+  *(Radi samo preko `https` adrese; preglednik prvi put pita za dozvolu.)*
+- **🖨 Štampaj spisak** – otvori radni nalog za kamion od **trenutno
+  filtriranih** redova (ime, adresa, telefon, kubici, kolona za potpis),
+  spreman za štampu ili snimanje u PDF.
+- **Grupisanje pinova** – gusto zbijene gradske ulice se spajaju u jedan
+  brojčani znak (crven ako u grupi ima neisporučenih, zelen ako je sve
+  gotovo); zumiranjem ili klikom se raširi.
 
 > **Telefoni:** ako link dijeliš šire, koristi `…/exec?telefoni=0` – tada se
 > brojevi telefona ne prikazuju. Imena penzionera i količine su lični podaci,

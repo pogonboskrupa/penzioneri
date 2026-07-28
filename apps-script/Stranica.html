@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <base target="_top">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <style>
   :root { --crvena:#d93025; --zuta:#f9ab00; --zelena:#188038; --linija:#e0e0e0; }
   * { box-sizing: border-box; }
@@ -111,6 +114,9 @@
   <label><input type="checkbox" id="samoPreostalo"> Samo gdje je ostalo</label>
   <input type="search" id="pretraga" placeholder="Traži ulicu, mjesto ili prezime">
   <button id="osvjezi">↻ Osvježi</button>
+  <button id="mojaLokacija" title="Sortira spisak po udaljenosti od tebe">📍 Moja lokacija</button>
+  <button id="stampaj" title="Štampanje trenutno filtriranog spiska">🖨 Štampaj spisak</button>
+  <span id="statusLokacije" style="font-size:12px;color:#5f6368"></span>
 </div>
 
 <div class="legenda">
@@ -166,13 +172,23 @@
 var PRIKAZI_TELEFONE = <?= prikaziTelefone ? 'true' : 'false' ?>;
 var SVE = [], SPISAK = [], BEZ_KOORDINATA = [], karta, sloj, oznaceni = null;
 var postavljaSeKljuc = null;
+var mojaPozicija = null, markerPozicije = null;
 
 function pokreni() {
   karta = L.map('karta').setView([44.88, 16.15], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19, attribution: '© OpenStreetMap'
   }).addTo(karta);
-  sloj = L.layerGroup().addTo(karta);
+  // Grupisanje pinova: u gradu se desetine ulica preklapaju na malom prostoru.
+  sloj = (typeof L.markerClusterGroup === 'function')
+    ? L.markerClusterGroup({
+        maxClusterRadius: 45,
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        iconCreateFunction: ikonaGrupe
+      })
+    : L.layerGroup();
+  sloj.addTo(karta);
   ucitaj();
   setInterval(ucitaj, 5 * 60 * 1000);   // sam se osvježi svakih 5 minuta
 
@@ -202,6 +218,100 @@ function pokreni() {
     }).javniSpremiRucnuKoordinatu(kljuc, e.latlng.lat, e.latlng.lng, lozinka);
   });
 }
+
+/** Boja grupe: zelena samo ako je sve u njoj isporučeno, inače crvena. */
+function ikonaGrupe(grupa) {
+  var djeca = grupa.getAllChildMarkers();
+  var imaPreostalo = djeca.some(function (m) { return m.options.imaPreostalo; });
+  var boja = imaPreostalo ? '#d93025' : '#188038';
+  return L.divIcon({
+    html: '<div style="background:' + boja + ';color:#fff;border-radius:50%;' +
+      'width:34px;height:34px;display:flex;align-items:center;justify-content:center;' +
+      'font:bold 12px Arial;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)">' +
+      djeca.length + '</div>',
+    className: '', iconSize: [34, 34]
+  });
+}
+
+/* ------------------------------------------------- moja lokacija (vozač) */
+
+function udaljenostKm(a, b) {
+  var R = 6371, stepen = Math.PI / 180;
+  var dLat = (b.lat - a.lat) * stepen, dLng = (b.lng - a.lng) * stepen;
+  var x = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(a.lat * stepen) * Math.cos(b.lat * stepen) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+document.getElementById('mojaLokacija').onclick = function () {
+  var status = document.getElementById('statusLokacije');
+  if (mojaPozicija) {                       // ponovni klik - isključi
+    mojaPozicija = null;
+    if (markerPozicije) { karta.removeLayer(markerPozicije); markerPozicije = null; }
+    status.textContent = '';
+    crtaj();
+    return;
+  }
+  if (!navigator.geolocation) {
+    status.textContent = 'Preglednik ne podržava lokaciju.';
+    return;
+  }
+  status.textContent = 'Tražim lokaciju…';
+  navigator.geolocation.getCurrentPosition(function (p) {
+    mojaPozicija = { lat: p.coords.latitude, lng: p.coords.longitude };
+    if (markerPozicije) karta.removeLayer(markerPozicije);
+    markerPozicije = L.circleMarker([mojaPozicija.lat, mojaPozicija.lng], {
+      radius: 8, color: '#fff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1
+    }).addTo(karta).bindTooltip('Ovdje si', { direction: 'top' });
+    status.textContent = 'Spisak je sortiran po blizini (klik ponovo za isključivanje).';
+    crtaj();
+    karta.setView([mojaPozicija.lat, mojaPozicija.lng], 14);
+  }, function (e) {
+    status.textContent = 'Lokacija nije dostupna: ' + e.message;
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+};
+
+/* ----------------------------------------------------- štampa spiska */
+
+document.getElementById('stampaj').onclick = function () {
+  var f = vrijednostiFiltera();
+  var redovi = filtriraniSpisak();
+  if (!redovi.length) { alert('Nema redova za štampu uz trenutne filtere.'); return; }
+
+  var opis = ['Vrsta: ' + (f.vrsta || 'sve'), 'Mjesto: ' + (f.mjesto || 'sva'),
+    'Ulica: ' + (f.ulica || 'sve'), 'Kategorija: ' + (f.kategorija || 'sve'),
+    'Status: ' + (f.status || 'svi')].join(' · ');
+
+  var html = '<html><head><meta charset="utf-8"><title>Radni nalog - ogrjev</title>' +
+    '<style>body{font-family:Arial;font-size:12px;margin:18px}' +
+    'h1{font-size:16px;margin:0 0 4px}p.f{color:#555;margin:0 0 12px;font-size:11px}' +
+    'table{border-collapse:collapse;width:100%}' +
+    'th,td{border:1px solid #999;padding:4px 6px;text-align:left}' +
+    'th{background:#eee}tr.g{background:#d9ead3}tr.c{background:#f4cccc}' +
+    'td.pot{width:70px}@media print{button{display:none}}</style></head><body>' +
+    '<h1>Radni nalog – isporuka ogrjeva</h1><p class="f">' + opis + ' · ' +
+    redovi.length + ' korisnika · štampano ' + new Date().toLocaleString('bs-BA') + '</p>' +
+    '<table><thead><tr><th>#</th><th>Mjesto</th><th>Ulica</th><th>Ime i prezime</th>' +
+    '<th>Kat.</th><th>Telefon</th><th>Odobreno</th><th>Isporučeno</th>' +
+    '<th>Preostalo</th><th>Potpis</th></tr></thead><tbody>';
+  redovi.forEach(function (r, i) {
+    var gotov = r.preostalo <= 0.001;
+    html += '<tr class="' + (gotov ? 'g' : 'c') + '"><td>' + (i + 1) + '</td><td>' +
+      r.mjesto + '</td><td>' + r.ulica + '</td><td>' + r.ime + '</td><td>' +
+      (r.kategorija || '').toLowerCase() + '</td><td>' + (r.telefon || '') + '</td><td>' +
+      r.odobreno + '</td><td>' + r.isporuceno + '</td><td><b>' + r.preostalo +
+      '</b></td><td class="pot"></td></tr>';
+  });
+  html += '</tbody></table></body></html>';
+
+  var prozor = window.open('', '_blank');
+  if (!prozor) { alert('Preglednik je blokirao novi prozor - dozvoli iskačuće prozore.'); return; }
+  prozor.document.write(html);
+  prozor.document.close();
+  prozor.focus();
+  setTimeout(function () { prozor.print(); }, 300);
+};
 
 /** Spisak ulica bez (ili s pogrešnom) lokacijom - klik na dugme pa na kartu. */
 function crtajNesvrstano() {
@@ -425,9 +535,10 @@ function vrijednostiFiltera() {
   return v;
 }
 
-function crtajTabelu() {
+/** Redovi tabele nakon primjene filtera po kolonama (koristi i štampa). */
+function filtriraniSpisak() {
   var f = vrijednostiFiltera();
-  var redovi = SPISAK.filter(function (r) {
+  return SPISAK.filter(function (r) {
     if (f.vrsta && r.vrsta !== f.vrsta) return false;
     if (f.mjesto && r.mjesto !== f.mjesto) return false;
     if (f.ulica && r.ulica !== f.ulica) return false;
@@ -439,7 +550,10 @@ function crtajTabelu() {
     return a.mjesto.localeCompare(b.mjesto, 'bs') || a.ulica.localeCompare(b.ulica, 'bs') ||
       a.ime.localeCompare(b.ime, 'bs');
   });
+}
 
+function crtajTabelu() {
+  var redovi = filtriraniSpisak();
   var tijelo = document.getElementById('tijeloTabele');
   tijelo.innerHTML = redovi.map(function (r) {
     var isporuceno = r.preostalo <= 0.001;
@@ -488,7 +602,8 @@ function crtaj() {
       marker = L.circleMarker([tacka.lat, tacka.lng], {
         radius: Math.max(7, Math.min(26, 6 + Math.sqrt(z.preostalo) * 3)),
         color: priblizno ? '#5f6368' : '#fff', weight: 2,
-        dashArray: priblizno ? '3,3' : null, fillColor: boja(z), fillOpacity: .85
+        dashArray: priblizno ? '3,3' : null, fillColor: boja(z), fillOpacity: .85,
+        imaPreostalo: z.preostalo > 0.001      // za bojenje grupa (klastera)
       }).addTo(sloj);
       marker.bindTooltip(tooltipHtml(tacka, z), { direction: 'top' });
       marker.bindPopup(popupHtml(tacka, z), { maxWidth: 340, maxHeight: 320 });
@@ -498,10 +613,27 @@ function crtaj() {
         prikaziKontekstniMeni(e.latlng, tacka, z);
       });
     }
+    if (mojaPozicija && tacka.lat !== null) {
+      tacka._udaljenost = udaljenostKm(mojaPozicija, { lat: tacka.lat, lng: tacka.lng });
+    } else {
+      tacka._udaljenost = null;
+    }
     redovi.push({ tacka: tacka, z: z, marker: marker });
   });
 
-  redovi.sort(function (a, b) { return b.z.preostalo - a.z.preostalo; });
+  if (mojaPozicija) {
+    // vozač na terenu: prvo najbliže neisporučene ulice
+    redovi.sort(function (a, b) {
+      var aOstalo = a.z.preostalo > 0.001, bOstalo = b.z.preostalo > 0.001;
+      if (aOstalo !== bOstalo) return aOstalo ? -1 : 1;
+      var au = a.tacka._udaljenost, bu = b.tacka._udaljenost;
+      if (au === null) return 1;
+      if (bu === null) return -1;
+      return au - bu;
+    });
+  } else {
+    redovi.sort(function (a, b) { return b.z.preostalo - a.z.preostalo; });
+  }
 
   var spisak = document.getElementById('spisak');
   spisak.innerHTML = redovi.length ? '' : '<div class="poruka">Nema rezultata.</div>';
@@ -513,16 +645,30 @@ function crtaj() {
       r.tacka.mjesto + '</span>' + oznakaTacnosti(r.tacka) +
       (r.marker ? '' : ' <span style="color:#b26a00">(nema na karti)</span>') +
       '<br>ostalo <strong>' + r.z.preostalo + ' m³</strong> · isporučeno ' +
-      r.z.isporuceno + ' m³ · ' + r.z.korisnici.length + ' korisnika';
+      r.z.isporuceno + ' m³ · ' + r.z.korisnici.length + ' korisnika' +
+      (r.tacka._udaljenost !== null && r.tacka._udaljenost !== undefined
+        ? ' · <strong>' + (r.tacka._udaljenost < 1
+            ? Math.round(r.tacka._udaljenost * 1000) + ' m'
+            : r.tacka._udaljenost.toFixed(1) + ' km') + ' od tebe</strong>'
+        : '');
     d.onclick = function () {
-      if (r.marker) { karta.setView([r.tacka.lat, r.tacka.lng], 16); r.marker.openTooltip(); }
+      if (r.marker) {
+        // ako je pin u grupi (klasteru), prvo je raširi pa onda prikaži
+        if (typeof sloj.zoomToShowLayer === 'function') {
+          sloj.zoomToShowLayer(r.marker, function () { r.marker.openTooltip(); });
+        } else {
+          karta.setView([r.tacka.lat, r.tacka.lng], 16);
+          r.marker.openTooltip();
+        }
+      }
       otvori(r.tacka, r.z, d);
     };
     spisak.appendChild(d);
   });
 
+  // dok je uključena "Moja lokacija" ne pomjeramo pogled - vozač prati sebe
   var sKoordinatama = redovi.filter(function (r) { return r.marker; });
-  if (sKoordinatama.length) {
+  if (sKoordinatama.length && !mojaPozicija) {
     karta.fitBounds(L.latLngBounds(sKoordinatama.map(function (r) {
       return [r.tacka.lat, r.tacka.lng];
     })).pad(0.15));
