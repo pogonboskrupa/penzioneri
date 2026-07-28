@@ -153,8 +153,9 @@ function ucitaj() {
         'Stanje iz tabele na dan ' + o.osvjezeno;
       kartice(o.zbir);
       document.getElementById('napomena').textContent = o.bezKoordinata.length
-        ? 'Bez koordinata (nisu na karti, ali jesu u spisku): ' +
-          o.bezKoordinata.join(', ')
+        ? o.bezKoordinata.length + ' ulica nema tačnu lokaciju (nisu na karti, ' +
+          'ali jesu u spisku ispod): ' +
+          o.bezKoordinata.map(function (u) { return u.ulica + ' (' + u.mjesto + ')'; }).join(', ')
         : '';
       SPISAK = flatiziraj(SVE);
       popuniFiltere(SPISAK);
@@ -235,6 +236,12 @@ function kategorijaZnak(k) {
     (k === 'PENZIONER' ? 'penzioner' : k.toLowerCase()) + '</span>';
 }
 
+function oznakaTacnosti(tacka) {
+  if (tacka.tacnost === 'naselje') return ' <span style="color:#b26a00;font-weight:normal">(približno)</span>';
+  if (tacka.tacnost === 'ručno') return ' <span style="color:#1a73e8;font-weight:normal">(ručno postavljeno)</span>';
+  return '';
+}
+
 /** Kratak opis iznad markera: ulica, kubici i imena onih koji čekaju. */
 function tooltipHtml(tacka, z) {
   var cekaju = z.korisnici.filter(function (r) { return r.k.preostalo > 0.001; });
@@ -242,7 +249,7 @@ function tooltipHtml(tacka, z) {
   var imena = lista.slice(0, 3).map(function (r) {
     return r.k.ime + ' (' + (r.k.kategorija || 'PENZIONER').toLowerCase() + ')';
   }).join(', ');
-  return '<strong>' + tacka.ulica + '</strong> · ' + tacka.mjesto +
+  return '<strong>' + tacka.ulica + '</strong> · ' + tacka.mjesto + oznakaTacnosti(tacka) +
     '<br>ostalo <strong>' + z.preostalo + ' m³</strong>, isporučeno ' +
     z.isporuceno + ' m³' + (imena ? '<br>' + (cekaju.length ? 'čekaju: ' : '') +
     imena + (lista.length > 3 ? ' +' + (lista.length - 3) : '') : '');
@@ -251,7 +258,7 @@ function tooltipHtml(tacka, z) {
 /** Puni spisak imena u oblačiću na karti. */
 function popupHtml(tacka, z) {
   var html = '<div style="font-size:12px"><strong>' + tacka.ulica + ', ' +
-    tacka.mjesto + '</strong><br>ostalo ' + z.preostalo + ' m³ · isporučeno ' +
+    tacka.mjesto + '</strong>' + oznakaTacnosti(tacka) + '<br>ostalo ' + z.preostalo + ' m³ · isporučeno ' +
     z.isporuceno + ' m³<table style="margin-top:4px">';
   z.korisnici.slice().sort(function (a, b) { return b.k.preostalo - a.k.preostalo; })
     .forEach(function (r) {
@@ -356,9 +363,11 @@ function crtaj() {
     if (!odgovaraPretrazi(tacka, z, tekst)) return;
     var marker = null;
     if (tacka.lat !== null && tacka.lng !== null) {
+      var priblizno = tacka.tacnost === 'naselje';
       marker = L.circleMarker([tacka.lat, tacka.lng], {
         radius: Math.max(7, Math.min(26, 6 + Math.sqrt(z.preostalo) * 3)),
-        color: '#fff', weight: 2, fillColor: boja(z), fillOpacity: .85
+        color: priblizno ? '#5f6368' : '#fff', weight: 2,
+        dashArray: priblizno ? '3,3' : null, fillColor: boja(z), fillOpacity: .85
       }).addTo(sloj);
       marker.bindTooltip(tooltipHtml(tacka, z), { direction: 'top' });
       marker.bindPopup(popupHtml(tacka, z), { maxWidth: 340, maxHeight: 320 });
@@ -376,7 +385,8 @@ function crtaj() {
     d.className = 'stavka';
     d.innerHTML = '<span class="znak" style="background:' + boja(r.z) + '"></span>' +
       '<strong>' + r.tacka.ulica + '</strong> <span style="color:#5f6368">' +
-      r.tacka.mjesto + '</span>' + (r.marker ? '' : ' <span style="color:#b26a00">(nema na karti)</span>') +
+      r.tacka.mjesto + '</span>' + oznakaTacnosti(r.tacka) +
+      (r.marker ? '' : ' <span style="color:#b26a00">(nema na karti)</span>') +
       '<br>ostalo <strong>' + r.z.preostalo + ' m³</strong> · isporučeno ' +
       r.z.isporuceno + ' m³ · ' + r.z.korisnici.length + ' korisnika';
     d.onclick = function () {
@@ -398,7 +408,7 @@ function otvori(tacka, z, element) {
   if (oznaceni) oznaceni.remove();
   var box = document.createElement('div');
   box.className = 'detalji';
-  var html = '<strong>' + tacka.ulica + ', ' + tacka.mjesto + '</strong>';
+  var html = '<strong>' + tacka.ulica + ', ' + tacka.mjesto + '</strong>' + oznakaTacnosti(tacka);
   if (tacka.lat !== null) {
     html += ' · <a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' +
       tacka.lat + ',' + tacka.lng + '">navigacija</a>';

@@ -79,13 +79,11 @@ Skripta sama upiše datum, novo stanje, status i osvježi sve zbirove.
 kreni od vrha – ili to isto pogledaj na karti.
 
 ### Karta
-**🪵 Drva → 2. Geokodiraj ulice** (samo za ulice koje još nemaju koordinate)
-pa **3. Otvori kartu**.
+**🪵 Drva → 2. Geokodiraj ulice** pa **3. Otvori kartu**.
 
 Na karti:
-- **crveni krug** = u toj ulici još ništa nije isporučeno,
-  **žuti** = djelimično, **zeleni** = ulica završena;
-- veličina kruga = koliko m³ je ostalo;
+- **zeleno** = ta ulica je u potpunosti isporučena, **crveno** = ima još
+  preostalo (djelimično ili ništa); veličina kruga = koliko m³ je ostalo;
 - gore biraš **Cijepano / U dugom / Obje** i „Prikaži samo ulice gdje je ostalo“;
 - prelaskom miša preko kruga vidi se ulica, koliko je ostalo/isporučeno i
   **imena onih koji čekaju** (s kategorijom), a klik otvara oblačić s
@@ -94,8 +92,22 @@ Na karti:
   otpremnicom) i **ko još čeka** (koliko m³, telefon), plus dugme
   **Navigacija (Google Maps)** za vozača kamiona.
 
-Ako neka ulica ostane bez koordinata, upiši `Lat` i `Lng` ručno u `ULICE_GEO`
-(u Google Mapsu desni klik na lokaciju → klik na koordinate ih kopira).
+**Tačnost lokacije** – geokodiranje sad radi u dva koraka da se izbjegnu
+pogrešni pogoci (npr. da ulica iz Bosanske Otoke ispadne u centru Bosanske
+Krupe):
+1. prvo se traži **tačna ulica**; rezultat se prihvata samo ako Google vrati
+   pun (ne približan) pogodak unutar područja opštine – takva ulica je
+   označena punim bijelim obrubom kruga;
+2. ako tačna ulica nije nađena, koristi se **centar naselja** (kolona
+   Mjesto) – krug tad ima isprekidan sivi obrub i piše „(približno)“;
+3. ako ni naselje nije prepoznato, ulica ide u **spisak „Nesvrstano“** u
+   lijevom/bočnom panelu na karti (bez pina) – nju postavljaš ručno:
+   klikni **Postavi pin** pored ulice u spisku, pa klikni na kartu tačno
+   gdje treba (npr. gdje živi kupac) – pin se odmah snimi u `ULICE_GEO` s
+   oznakom „ručno“ i geokodiranje je više neće dirati.
+
+Ponovno pokretanje **Geokodiraj ulice** ne dira ulice već označene „ulica“
+ili „ručno“ – samo pokušava poboljšati one označene „naselje“ ili „nesvrstano“.
 
 ### Kategorija korisnika (penzioner / RVI / sindikat)
 U listovima `PODACI_*` postoji kolona **Kategorija**. U izvornim `.xls`

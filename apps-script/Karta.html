@@ -24,6 +24,12 @@
   .upozorenje { background: #fff4e5; border: 1px solid #f9ab00; padding: 6px 8px;
                 font-size: 12px; margin-bottom: 8px; }
   a.nav { font-size: 12px; }
+  .priblizno { font-size: 10px; color: #b26a00; font-weight: normal; }
+  .nesvrstano-stavka { border-bottom: 1px solid #eee; padding: 6px 0; font-size: 13px; }
+  .nesvrstano-stavka button { font-size: 12px; padding: 3px 8px; margin-top: 4px; cursor: pointer; }
+  .nesvrstano-stavka button.aktivno { background: #d93025; color: #fff; border-color: #d93025; }
+  #trakaPostavljanja { display: none; background: #d93025; color: #fff; padding: 6px 10px;
+                       font-size: 13px; text-align: center; }
 </style>
 </head>
 <body>
@@ -36,10 +42,13 @@
     <label style="margin-left:12px"><input type="checkbox" id="samoPreostalo"> Prikaži samo ulice gdje je ostalo</label>
     <span class="zbir" id="zbir"></span>
   </div>
+  <div id="trakaPostavljanja">Klikni na kartu tačno gdje je kupac/ulica - pin se odmah snima.
+    <button id="otkaziPostavljanje" style="margin-left:10px">Otkaži</button></div>
   <div id="okvir">
     <div id="karta"></div>
     <div id="bocna">
       <div id="upozorenje"></div>
+      <div id="odjeljakNesvrstano"></div>
       <h3>Ulice (najviše preostalo prvo)</h3>
       <div id="spisak">Učitavanje…</div>
       <div id="detalji"></div>
@@ -54,20 +63,78 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(karta);
 
 var sloj = L.layerGroup().addTo(karta);
-var SVE = [];
+var SVE = [], BEZ_KOORDINATA = [], postavljaSeKljuc = null;
 
-google.script.run.withSuccessHandler(function (odgovor) {
-  SVE = odgovor.tacke || [];
-  if (odgovor.bezKoordinata && odgovor.bezKoordinata.length) {
-    document.getElementById('upozorenje').innerHTML =
-      '<div class="upozorenje">Bez koordinata (' + odgovor.bezKoordinata.length +
-      '): ' + odgovor.bezKoordinata.slice(0, 10).join(', ') +
-      '. Pokrenite "Geokodiraj ulice" ili upišite Lat/Lng ručno u list ULICE_GEO.</div>';
+function ucitajSve() {
+  google.script.run.withSuccessHandler(function (odgovor) {
+    SVE = odgovor.tacke || [];
+    BEZ_KOORDINATA = odgovor.bezKoordinata || [];
+    document.getElementById('upozorenje').innerHTML = BEZ_KOORDINATA.length
+      ? '<div class="upozorenje">' + BEZ_KOORDINATA.length + ' ulica nema tačnu lokaciju - ' +
+        'postavi ih ručno u spisku "Nesvrstano" ispod, ili pokreni "Geokodiraj ulice".</div>'
+      : '';
+    crtajNesvrstano();
+    crtaj();
+  }).withFailureHandler(function (e) {
+    document.getElementById('spisak').textContent = 'Greška: ' + e.message;
+  }).podaciZaKartu();
+}
+ucitajSve();
+
+/** Spisak ulica bez (ili s pogrešnom) lokacijom - klik na dugme pa na kartu. */
+function crtajNesvrstano() {
+  var el = document.getElementById('odjeljakNesvrstano');
+  if (!BEZ_KOORDINATA.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<h3>Nesvrstano (' + BEZ_KOORDINATA.length + ')</h3>';
+  BEZ_KOORDINATA.forEach(function (u) {
+    var d = document.createElement('div');
+    d.className = 'nesvrstano-stavka';
+    d.innerHTML = '<strong>' + u.ulica + '</strong> <span style="color:#666">' + u.mjesto +
+      '</span><br><button data-kljuc="' + u.kljuc.replace(/"/g, '&quot;') + '">Postavi pin</button>';
+    d.querySelector('button').onclick = function (ev) {
+      pokreniPostavljanje(u.kljuc, ev.target);
+    };
+    el.appendChild(d);
+  });
+}
+
+function pokreniPostavljanje(kljuc, dugme) {
+  document.querySelectorAll('.nesvrstano-stavka button').forEach(function (b) {
+    b.classList.remove('aktivno'); b.textContent = 'Postavi pin';
+  });
+  if (postavljaSeKljuc === kljuc) {           // ponovni klik - otkaži
+    zavrsiPostavljanje();
+    return;
   }
-  crtaj();
-}).withFailureHandler(function (e) {
-  document.getElementById('spisak').textContent = 'Greška: ' + e.message;
-}).podaciZaKartu();
+  postavljaSeKljuc = kljuc;
+  dugme.classList.add('aktivno');
+  dugme.textContent = 'Klikni na kartu…';
+  document.getElementById('trakaPostavljanja').style.display = 'block';
+  document.getElementById('karta').style.cursor = 'crosshair';
+}
+
+function zavrsiPostavljanje() {
+  postavljaSeKljuc = null;
+  document.getElementById('trakaPostavljanja').style.display = 'none';
+  document.getElementById('karta').style.cursor = '';
+  document.querySelectorAll('.nesvrstano-stavka button').forEach(function (b) {
+    b.classList.remove('aktivno'); b.textContent = 'Postavi pin';
+  });
+}
+
+document.getElementById('otkaziPostavljanje').onclick = zavrsiPostavljanje;
+
+karta.on('click', function (e) {
+  if (!postavljaSeKljuc) return;
+  var kljuc = postavljaSeKljuc;
+  google.script.run.withSuccessHandler(function () {
+    zavrsiPostavljanje();
+    ucitajSve();
+  }).withFailureHandler(function (err) {
+    alert('Nije spremljeno: ' + err.message);
+    zavrsiPostavljanje();
+  }).spremiRucnuKoordinatu(kljuc, e.latlng.lat, e.latlng.lng);
+});
 
 function odabranaVrsta() {
   return document.querySelector('input[name=vrsta]:checked').value;
@@ -101,6 +168,12 @@ function kratkaKategorija(k) {
   return k === 'PENZIONER' ? 'penz.' : k === 'SINDIKAT' ? 'sind.' : (k || '').toLowerCase();
 }
 
+function oznakaTacnosti(tacka) {
+  if (tacka.tacnost === 'naselje') return ' <span class="priblizno">(približno, centar naselja)</span>';
+  if (tacka.tacnost === 'ručno') return ' <span class="priblizno">(ručno postavljeno)</span>';
+  return '';
+}
+
 /** Kratak opis iznad markera: ulica, kubici i prva imena. */
 function tooltipHtml(tacka, z) {
   var cekaju = z.korisnici.filter(function (r) { return r.k.preostalo > 0.001; });
@@ -108,7 +181,7 @@ function tooltipHtml(tacka, z) {
     return r.k.ime + ' (' + kratkaKategorija(r.k.kategorija) + ')';
   }).join(', ');
   var ostatak = (cekaju.length ? cekaju : z.korisnici).length - 3;
-  return '<strong>' + tacka.ulica + '</strong> · ' + tacka.mjesto +
+  return '<strong>' + tacka.ulica + '</strong> · ' + tacka.mjesto + oznakaTacnosti(tacka) +
     '<br>ostalo <strong>' + z.preostalo + ' m3</strong>, isporučeno ' +
     z.isporuceno + ' m3' + (imena ? '<br>' + (cekaju.length ? 'čekaju: ' : '') +
     imena + (ostatak > 0 ? ' +' + ostatak : '') : '');
@@ -145,9 +218,11 @@ function crtaj() {
     ukupnoPreostalo += z.preostalo;
     ukupnoIsporuceno += z.isporuceno;
 
+    var priblizno = tacka.tacnost === 'naselje';
     var marker = L.circleMarker([tacka.lat, tacka.lng], {
       radius: Math.max(7, Math.min(26, 6 + Math.sqrt(z.preostalo) * 3)),
-      color: '#fff', weight: 2, fillColor: boja(z), fillOpacity: 0.85
+      color: priblizno ? '#5f6368' : '#fff', weight: priblizno ? 2 : 2,
+      dashArray: priblizno ? '3,3' : null, fillColor: boja(z), fillOpacity: 0.85
     }).addTo(sloj);
     marker.bindTooltip(tooltipHtml(tacka, z), { direction: 'top' });
     marker.bindPopup(popupHtml(tacka, z), { maxWidth: 340, maxHeight: 320 });
@@ -167,7 +242,8 @@ function crtaj() {
     d.className = 'stavka';
     d.innerHTML = '<span class="znak" style="background:' + boja(r.z) + '"></span>' +
       '<strong>' + r.tacka.ulica + '</strong> <span style="color:#666">' +
-      r.tacka.mjesto + '</span><br>ostalo <strong>' + r.z.preostalo +
+      r.tacka.mjesto + '</span>' + oznakaTacnosti(r.tacka) +
+      '<br>ostalo <strong>' + r.z.preostalo +
       ' m3</strong> · isporučeno ' + r.z.isporuceno + ' m3 · ' +
       r.z.korisnici.length + ' korisnika';
     d.onclick = function () {
@@ -186,7 +262,7 @@ function crtaj() {
 }
 
 function prikaziDetalje(tacka, z) {
-  var html = '<h3>' + tacka.ulica + ', ' + tacka.mjesto + '</h3>' +
+  var html = '<h3>' + tacka.ulica + ', ' + tacka.mjesto + oznakaTacnosti(tacka) + '</h3>' +
     '<a class="nav" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' +
     tacka.lat + ',' + tacka.lng + '">▸ Navigacija (Google Maps)</a><table>';
   z.korisnici.sort(function (a, b) { return b.k.preostalo - a.k.preostalo; });

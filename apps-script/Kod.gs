@@ -172,7 +172,10 @@ function ucitajKoordinate_() {
   t.redovi.forEach(function (r) {
     var k = String(r[t.i['Adresa ključ']]).trim();
     if (k && r[t.i['Lat']] !== '' && r[t.i['Lng']] !== '') {
-      mapa[k] = { lat: broj_(r[t.i['Lat']]), lng: broj_(r[t.i['Lng']]) };
+      mapa[k] = {
+        lat: broj_(r[t.i['Lat']]), lng: broj_(r[t.i['Lng']]),
+        tacnost: t.i['Tačnost'] !== undefined ? String(r[t.i['Tačnost']] || '') : ''
+      };
     }
   });
   return mapa;
@@ -183,58 +186,132 @@ function osvjeziGeo_(poVrsti, sveUlice, koordinate) {
     var u = sveUlice[k];
     var c = poVrsti['CIJEPANO'][k] || { preostalo: 0, isporuceno: 0, korisnika: 0 };
     var d = poVrsti['U DUGOM'][k] || { preostalo: 0, isporuceno: 0, korisnika: 0 };
-    var xy = koordinate[k] || { lat: '', lng: '' };
+    var xy = koordinate[k] || { lat: '', lng: '', tacnost: '' };
     var adresa = u.ulica && u.ulica !== '(bez ulice)'
       ? u.ulica + ', ' + u.mjesto + ', Bosna i Hercegovina'
       : u.mjesto + ', Bosna i Hercegovina';
     return [u.mjesto, u.ulica, k,
       okrugli_(c.preostalo), okrugli_(c.isporuceno),
       okrugli_(d.preostalo), okrugli_(d.isporuceno),
-      okrugli_(c.preostalo + d.preostalo), adresa, xy.lat, xy.lng];
+      okrugli_(c.preostalo + d.preostalo), adresa, xy.lat, xy.lng, xy.tacnost];
   }).sort(function (a, b) { return b[7] - a[7]; });
 
-  upisi_(LIST_GEO, ['Mjesto', 'Ulica', 'Adresa ključ',
+  var s = upisi_(LIST_GEO, ['Mjesto', 'Ulica', 'Adresa ključ',
     'Preostalo CIJEPANO m3', 'Isporučeno CIJEPANO m3',
     'Preostalo U DUGOM m3', 'Isporučeno U DUGOM m3',
-    'Preostalo ukupno m3', 'Adresa za kartu', 'Lat', 'Lng'], redovi);
+    'Preostalo ukupno m3', 'Adresa za kartu', 'Lat', 'Lng', 'Tačnost'], redovi);
+  if (redovi.length) {
+    var opseg = s.getRange(2, 12, redovi.length, 1);
+    opseg.setBackgrounds(opseg.getValues().map(function (r) {
+      return [r[0] === 'ulica' ? '#d9ead3' : r[0] === 'naselje' ? '#fff2cc'
+        : r[0] === 'ručno' ? '#cfe2f3' : r[0] === 'nesvrstano' ? '#f4cccc' : null];
+    }));
+  }
 }
 
 /* ---------------------------------------------------------- 2. geokodiranje */
+
+// Granice šireg područja opštine Bosanska Krupa - odbacujemo pogotke izvan
+// njih (npr. kad Google ne nađe ulicu pa vrati centar neke druge opštine).
+var GEO_OKVIR = { latMin: 44.60, latMax: 45.15, lngMin: 15.80, lngMax: 16.60 };
+
+function uOkviru_(loc) {
+  return loc.lat >= GEO_OKVIR.latMin && loc.lat <= GEO_OKVIR.latMax &&
+    loc.lng >= GEO_OKVIR.lngMin && loc.lng <= GEO_OKVIR.lngMax;
+}
+
+/**
+ * Pokušava geokodirati tačnu ulicu; ako Google ne nađe baš tu ulicu (ili
+ * vrati samo približan pogodak - partial_match), NE prihvata taj rezultat
+ * jer u praksi zna vratiti centar sasvim drugog mjesta. Umjesto toga proba
+ * samo naselje (kolona Mjesto) - to je tačnije nego pogrešna ulica.
+ */
+function geokodirajJedno_(geokoder, ulicaAdresa, mjestoAdresa) {
+  if (ulicaAdresa) {
+    try {
+      var o = geokoder.geocode(ulicaAdresa);
+      if (o.status === 'OK' && o.results.length && !o.results[0].partial_match) {
+        var loc = o.results[0].geometry.location;
+        if (uOkviru_(loc)) return { lat: loc.lat, lng: loc.lng, tacnost: 'ulica' };
+      }
+    } catch (e) { /* nastavi na naselje */ }
+    Utilities.sleep(200);
+  }
+  try {
+    var o2 = geokoder.geocode(mjestoAdresa);
+    if (o2.status === 'OK' && o2.results.length) {
+      var loc2 = o2.results[0].geometry.location;
+      if (uOkviru_(loc2)) return { lat: loc2.lat, lng: loc2.lng, tacnost: 'naselje' };
+    }
+  } catch (e) { /* pada u nesvrstano */ }
+  return null;
+}
 
 function geokodirajUlice() {
   var s = list_(LIST_GEO);
   var t = citaj_(LIST_GEO);
   var geokoder = Maps.newGeocoder().setRegion('ba');
-  var uspjeh = 0, neuspjeh = [];
+  var uliceN = 0, naseljeN = 0, nesvrstanoN = 0;
 
   t.redovi.forEach(function (r, idx) {
-    if (r[t.i['Lat']] !== '' && r[t.i['Lng']] !== '') return;  // već ima
-    var adresa = String(r[t.i['Adresa za kartu']]).trim();
-    if (!adresa) return;
-    var odgovor;
-    try {
-      odgovor = geokoder.geocode(adresa);
-    } catch (e) {
-      neuspjeh.push(adresa + ' (' + e.message + ')');
-      return;
-    }
-    if (odgovor.status === 'OK' && odgovor.results.length) {
-      var loc = odgovor.results[0].geometry.location;
-      s.getRange(idx + 2, t.i['Lat'] + 1).setValue(loc.lat);
-      s.getRange(idx + 2, t.i['Lng'] + 1).setValue(loc.lng);
-      uspjeh++;
+    var tacnostSad = t.i['Tačnost'] !== undefined ? String(r[t.i['Tačnost']] || '') : '';
+    if (tacnostSad === 'ručno') return;                  // ne diraj ručno postavljene
+    if (r[t.i['Lat']] !== '' && r[t.i['Lng']] !== '' && tacnostSad === 'ulica') return;
+
+    var ulica = String(r[t.i['Ulica']] || '').trim();
+    var mjesto = String(r[t.i['Mjesto']] || '').trim();
+    var adresaUlice = ulica && ulica !== '(bez ulice)'
+      ? ulica + ', ' + mjesto + ', Bosna i Hercegovina' : '';
+    var adresaMjesta = mjesto + ', Bosna i Hercegovina';
+
+    var rezultat = geokodirajJedno_(geokoder, adresaUlice, adresaMjesta);
+    var red = idx + 2;
+    if (rezultat) {
+      s.getRange(red, t.i['Lat'] + 1).setValue(rezultat.lat);
+      s.getRange(red, t.i['Lng'] + 1).setValue(rezultat.lng);
+      if (t.i['Tačnost'] !== undefined) {
+        s.getRange(red, t.i['Tačnost'] + 1).setValue(rezultat.tacnost);
+      }
+      if (rezultat.tacnost === 'ulica') uliceN++; else naseljeN++;
     } else {
-      neuspjeh.push(adresa);
+      if (t.i['Tačnost'] !== undefined) {
+        s.getRange(red, t.i['Tačnost'] + 1).setValue('nesvrstano');
+      }
+      nesvrstanoN++;
     }
-    Utilities.sleep(200);  // da se ne pređe dnevna kvota prebrzo
+    Utilities.sleep(150);
   });
 
-  var poruka = 'Geokodirano: ' + uspjeh + '.';
-  if (neuspjeh.length) {
-    poruka += '\n\nNije pronađeno (' + neuspjeh.length + ') - upišite Lat/Lng ručno:\n'
-      + neuspjeh.slice(0, 25).join('\n');
+  SpreadsheetApp.getUi().alert(
+    'Tačno po ulici: ' + uliceN + '\n' +
+    'Približno, po naselju (Mjesto): ' + naseljeN + '\n' +
+    'Nesvrstano (bez lokacije): ' + nesvrstanoN +
+    (nesvrstanoN
+      ? '\n\nNesvrstane ulice postavi ručno: 🪵 Drva → Otvori kartu → ' +
+        'lijevi spisak "Nesvrstano" → Postavi pin → klik na kartu.'
+      : ''));
+}
+
+/**
+ * Ručno postavljanje pina na kartu (klikom) za ulicu koja nema tačnu ili
+ * ima pogrešnu lokaciju. Pretpostavlja tačnost "ručno" - geokodiranje je
+ * više nikad automatski ne dira.
+ */
+function spremiRucnuKoordinatu(kljucAdrese, lat, lng) {
+  var s = list_(LIST_GEO);
+  var t = citaj_(LIST_GEO);
+  for (var i = 0; i < t.redovi.length; i++) {
+    if (String(t.redovi[i][t.i['Adresa ključ']]).trim() === kljucAdrese) {
+      var red = i + 2;
+      s.getRange(red, t.i['Lat'] + 1).setValue(lat);
+      s.getRange(red, t.i['Lng'] + 1).setValue(lng);
+      if (t.i['Tačnost'] !== undefined) {
+        s.getRange(red, t.i['Tačnost'] + 1).setValue('ručno');
+      }
+      return true;
+    }
   }
-  SpreadsheetApp.getUi().alert(poruka);
+  throw new Error('Adresa nije nađena u ULICE_GEO: ' + kljucAdrese);
 }
 
 /* ------------------------------------------------------------------ 3. karta */
@@ -257,6 +334,7 @@ function podaciZaKartu() {
       ulica: r[geo.i['Ulica']],
       lat: imaXY ? broj_(lat) : null,   // bez koordinata: samo u spisku, ne na karti
       lng: imaXY ? broj_(lng) : null,
+      tacnost: geo.i['Tačnost'] !== undefined ? String(r[geo.i['Tačnost']] || '') : '',
       vrste: {}
     };
   });
@@ -293,7 +371,11 @@ function podaciZaKartu() {
   var bezKoordinata = [];
   geo.redovi.forEach(function (r) {
     if (r[geo.i['Lat']] === '' || r[geo.i['Lng']] === '') {
-      bezKoordinata.push(String(r[geo.i['Mjesto']]) + ' - ' + String(r[geo.i['Ulica']]));
+      bezKoordinata.push({
+        kljuc: String(r[geo.i['Adresa ključ']]).trim(),
+        mjesto: String(r[geo.i['Mjesto']]),
+        ulica: String(r[geo.i['Ulica']])
+      });
     }
   });
 
