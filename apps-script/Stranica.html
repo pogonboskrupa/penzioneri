@@ -105,9 +105,7 @@
   <label><input type="checkbox" id="samoPreostalo"> Samo gdje je ostalo</label>
   <input type="search" id="pretraga" placeholder="Traži ulicu, mjesto ili prezime">
   <button id="osvjezi">↻ Osvježi</button>
-  <button id="mojaLokacija" title="Sortira spisak po udaljenosti od tebe">📍 Moja lokacija</button>
   <button id="stampaj" title="Štampanje trenutno filtriranog spiska">🖨 Štampaj spisak</button>
-  <span id="statusLokacije" style="font-size:12px;color:#5f6368"></span>
 </div>
 
 <div class="legenda">
@@ -169,7 +167,6 @@
 var PRIKAZI_TELEFONE = <?= prikaziTelefone ? 'true' : 'false' ?>;
 var SVE = [], SPISAK = [], VRSTE = [], karta, sloj, oznaceni = null;
 var postavljaSeKljuc = null;
-var mojaPozicija = null, markerPozicije = null;
 
 /** Radio dugmad za svaku grupu (VRSTE) - grade se iz podataka poslije prvog učitavanja. */
 function izgradiIzborVrste() {
@@ -214,45 +211,6 @@ function ikonaGrupe(grupa) {
     className: '', iconSize: [34, 34]
   });
 }
-
-/* ------------------------------------------------- moja lokacija (vozač) */
-
-function udaljenostKm(a, b) {
-  var R = 6371, stepen = Math.PI / 180;
-  var dLat = (b.lat - a.lat) * stepen, dLng = (b.lng - a.lng) * stepen;
-  var x = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(a.lat * stepen) * Math.cos(b.lat * stepen) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-}
-
-document.getElementById('mojaLokacija').onclick = function () {
-  var status = document.getElementById('statusLokacije');
-  if (mojaPozicija) {                       // ponovni klik - isključi
-    mojaPozicija = null;
-    if (markerPozicije) { karta.removeLayer(markerPozicije); markerPozicije = null; }
-    status.textContent = '';
-    crtaj();
-    return;
-  }
-  if (!navigator.geolocation) {
-    status.textContent = 'Preglednik ne podržava lokaciju.';
-    return;
-  }
-  status.textContent = 'Tražim lokaciju…';
-  navigator.geolocation.getCurrentPosition(function (p) {
-    mojaPozicija = { lat: p.coords.latitude, lng: p.coords.longitude };
-    if (markerPozicije) karta.removeLayer(markerPozicije);
-    markerPozicije = L.circleMarker([mojaPozicija.lat, mojaPozicija.lng], {
-      radius: 8, color: '#fff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1
-    }).addTo(karta).bindTooltip('Ovdje si', { direction: 'top' });
-    status.textContent = 'Spisak je sortiran po blizini (klik ponovo za isključivanje).';
-    crtaj();
-    karta.setView([mojaPozicija.lat, mojaPozicija.lng], 14);
-  }, function (e) {
-    status.textContent = 'Lokacija nije dostupna: ' + e.message;
-  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
-};
 
 /* ----------------------------------------------------- štampa spiska */
 
@@ -673,27 +631,10 @@ function crtaj() {
       marker.bindPopup(popupHtml(tacka, z), { maxWidth: 340, maxHeight: 320 });
       marker.on('click', function () { otvori(tacka, z); });
     }
-    if (mojaPozicija && tacka.lat !== null) {
-      tacka._udaljenost = udaljenostKm(mojaPozicija, { lat: tacka.lat, lng: tacka.lng });
-    } else {
-      tacka._udaljenost = null;
-    }
     redovi.push({ tacka: tacka, z: z, marker: marker });
   });
 
-  if (mojaPozicija) {
-    // vozač na terenu: prvo najbliže neisporučene ulice
-    redovi.sort(function (a, b) {
-      var aOstalo = a.z.preostalo > 0.001, bOstalo = b.z.preostalo > 0.001;
-      if (aOstalo !== bOstalo) return aOstalo ? -1 : 1;
-      var au = a.tacka._udaljenost, bu = b.tacka._udaljenost;
-      if (au === null) return 1;
-      if (bu === null) return -1;
-      return au - bu;
-    });
-  } else {
-    redovi.sort(function (a, b) { return b.z.preostalo - a.z.preostalo; });
-  }
+  redovi.sort(function (a, b) { return b.z.preostalo - a.z.preostalo; });
 
   var spisak = document.getElementById('spisak');
   spisak.innerHTML = redovi.length ? '' : '<div class="poruka">Nema rezultata.</div>';
@@ -705,12 +646,7 @@ function crtaj() {
       r.tacka.mjesto + '</span>' + oznakaTacnosti(r.tacka) +
       (r.marker ? '' : ' <span style="color:#b26a00">(nema na karti)</span>') +
       '<br>ostalo <strong>' + r.z.preostalo + ' m³</strong> · isporučeno ' +
-      r.z.isporuceno + ' m³ · ' + r.z.korisnici.length + ' korisnika' +
-      (r.tacka._udaljenost !== null && r.tacka._udaljenost !== undefined
-        ? ' · <strong>' + (r.tacka._udaljenost < 1
-            ? Math.round(r.tacka._udaljenost * 1000) + ' m'
-            : r.tacka._udaljenost.toFixed(1) + ' km') + ' od tebe</strong>'
-        : '');
+      r.z.isporuceno + ' m³ · ' + r.z.korisnici.length + ' korisnika';
     d.onclick = function () {
       if (r.marker) {
         // ako je pin u grupi (klasteru), prvo je raširi pa onda prikaži
@@ -726,9 +662,8 @@ function crtaj() {
     spisak.appendChild(d);
   });
 
-  // dok je uključena "Moja lokacija" ne pomjeramo pogled - vozač prati sebe
   var sKoordinatama = redovi.filter(function (r) { return r.marker; });
-  if (sKoordinatama.length && !mojaPozicija) {
+  if (sKoordinatama.length) {
     karta.fitBounds(L.latLngBounds(sKoordinatama.map(function (r) {
       return [r.tacka.lat, r.tacka.lng];
     })).pad(0.15));

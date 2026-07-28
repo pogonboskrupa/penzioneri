@@ -82,12 +82,19 @@ Trenutno stanje:
 ## 3. Svakodnevni rad
 
 ### Upis isporuke
-Na bilo kojem listu `PODACI_*` klikni na red korisnika →
-**🪵 Drva → Upiši isporuku za označeni red** → upiši m³ i broj otpremnice.
-Skripta sama upiše datum, novo stanje, status i osvježi sve zbirove.
+**Najbrže** – direktno u tabelu: na bilo kojem listu `PODACI_*` upiši broj
+kubika u kolonu **„Isporučeno m3“** i pritisni Enter. Ostalo se samo izračuna
+istog trenutka: **Preostalo m3**, **Status** (ZA ISPORUKU / DJELIMIČNO /
+ISPORUČENO), boja cijelog reda (zeleno/crveno), a ako je „Datum isporuke“
+prazan – upiše se današnji datum. Radi i pri ljepljenju više redova odjednom.
 
-*(Može i ručno: samo upiši broj u kolonu „Isporučeno m3“, pa pokreni
-„Osvježi sažetke“.)*
+*(Ovo ne diže i broj otpremnice, i ne mijenja odmah `ULICE_GEO`/`MJESTA`/
+`PREGLED` – za to i dalje treba „Osvježi sažetke“, ili uključi automatsko
+jutarnje osvježavanje iz Podešavanja.)*
+
+Ako želiš da se odmah upiše i broj otpremnice, i u historiju (list
+`ISPORUKE`): klikni na red korisnika → **🪵 Drva → Upiši isporuku za
+označeni red** → upiši m³ i otpremnicu kroz dijalog.
 
 ### Pregled po ulicama
 **🪵 Drva → 1. Osvježi sažetke** – ponovo izračuna:
@@ -195,7 +202,10 @@ Osvježava se i sam pri svakom „Osvježi sažetke".
 ### Zaštita i automatika (meni `Podešavanja`)
 - **Zaključaj računate kolone** – `Preostalo m3` i `Status` računa skripta, pa
   ih ova stavka zaštiti od ručne izmjene (vlasnik i dalje može, skripta radi
-  normalno). „Otključaj" skida zaštitu.
+  normalno). „Otključaj" skida zaštitu. Napomena: ako je uključeno, automatski
+  upis pri kucanju u „Isporučeno m3" (iznad) radi pouzdano samo za vlasnika
+  tabele – ostalim urednicima se u tom slučaju preporučuje da koriste dijalog
+  „Upiši isporuku za označeni red" umjesto direktnog kucanja.
 - **Uključi automatsko jutarnje osvježavanje** – okidač koji svako jutro
   (oko 6h) sam pokrene osvježavanje sažetaka i pregleda, pa su brojke tačne
   i ako niko ne klikne ništa.
@@ -229,12 +239,8 @@ Na stranici su: kartice sa zbirovima (odvojeno cijepano / u dugom / ukupno),
 karta s bojama po statusu, spisak ulica sortiran po preostalim kubicima,
 pretraga po ulici, mjestu ili prezimenu, i detalji kome je isporučeno.
 
-Uz to, tri alata za rad na terenu:
+Uz to, dva alata za rad na terenu:
 
-- **📍 Moja lokacija** – uzme GPS poziciju iz telefona i **presloži spisak po
-  blizini**: prvo najbliže ulice u kojima je još ostalo, sa razdaljinom
-  („350 m od tebe"). Plava tačka pokazuje gdje si. Ponovni klik isključuje.
-  *(Radi samo preko `https` adrese; preglednik prvi put pita za dozvolu.)*
 - **🖨 Štampaj spisak** – otvori radni nalog za kamion od **trenutno
   filtriranih** redova (ime, adresa, telefon, kubici, kolona za potpis),
   spreman za štampu ili snimanje u PDF.

@@ -67,6 +67,62 @@ function kljucAdrese_(mjesto, ulica) {
   return String(mjesto).trim() + '|' + String(ulica).trim().toUpperCase();
 }
 
+/**
+ * Automatski se pokreće kad neko upiše/promijeni broj u koloni
+ * "Isporučeno m3" na bilo kojem listu PODACI_* - operater ne mora otvarati
+ * dijalog "Upiši isporuku": čim upiše kubike, sam se izračuna Preostalo,
+ * Status, boja reda, a ako je Datum isporuke prazan - upiše se današnji.
+ * (Ne mijenja ULICE_GEO/MJESTA/PREGLED - za to i dalje treba
+ * "Osvježi sažetke", ili uključi automatsko jutarnje osvježavanje.)
+ */
+function onEdit(e) {
+  try {
+    var opseg = e.range;
+    var list = opseg.getSheet();
+    var jePodaci = false;
+    VRSTE.forEach(function (v) { if (v.podaci === list.getName()) jePodaci = true; });
+    if (!jePodaci || opseg.getRow() < 2) return;
+
+    var zadnjaKolona = list.getLastColumn();
+    var zaglavlje = list.getRange(1, 1, 1, zadnjaKolona).getValues()[0];
+    var idx = {};
+    zaglavlje.forEach(function (h, i) { idx[String(h).trim()] = i; });
+    var kolIsporuceno = idx['Isporučeno m3'];
+    if (kolIsporuceno === undefined) return;
+    // reaguje samo kad je izmijenjena baš kolona Isporučeno m3 (uključivo pri
+    // ljepljenju više redova); izmjene u Preostalo/Status koje ovaj kod sam
+    // upiše ne pokreću ponovo ovu granu jer su u drugoj koloni
+    if (opseg.getColumn() > kolIsporuceno + 1 ||
+        opseg.getColumn() + opseg.getNumColumns() - 1 < kolIsporuceno + 1) return;
+
+    var kolOdobreno = idx['Odobreno m3'], kolPreostalo = idx['Preostalo m3'],
+      kolStatus = idx['Status'], kolDatum = idx['Datum isporuke'];
+    if ([kolOdobreno, kolPreostalo, kolStatus].some(function (k) { return k === undefined; })) return;
+
+    for (var r = 0; r < opseg.getNumRows(); r++) {
+      var red = opseg.getRow() + r;
+      var isporuceno = broj_(list.getRange(red, kolIsporuceno + 1).getValue());
+      var odobreno = broj_(list.getRange(red, kolOdobreno + 1).getValue());
+      var preostalo = Math.max(Math.round((odobreno - isporuceno) * 100) / 100, 0);
+      var status = (preostalo <= 0.001 && isporuceno > 0) ? 'ISPORUČENO'
+        : (isporuceno > 0.001 ? 'DJELIMIČNO' : 'ZA ISPORUKU');
+
+      list.getRange(red, kolPreostalo + 1).setValue(preostalo);
+      list.getRange(red, kolStatus + 1).setValue(status);
+      if (kolDatum !== undefined && isporuceno > 0) {
+        var celijaDatum = list.getRange(red, kolDatum + 1);
+        if (!celijaDatum.getValue()) {
+          celijaDatum.setValue(Utilities.formatDate(new Date(), 'Europe/Sarajevo', 'dd.MM.yyyy'));
+        }
+      }
+      var boja = (preostalo <= 0.001 && isporuceno > 0) ? BOJA_ISPORUCENO : BOJA_NEISPORUCENO;
+      list.getRange(red, 1, 1, zadnjaKolona).setBackground(boja);
+    }
+  } catch (err) {
+    // ne prekidati uređivanje korisniku zbog greške ovdje
+  }
+}
+
 function upisi_(naziv, zaglavlje, redovi) {
   var s = SpreadsheetApp.getActive().getSheetByName(naziv);
   if (!s) s = SpreadsheetApp.getActive().insertSheet(naziv);
