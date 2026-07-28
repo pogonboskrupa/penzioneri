@@ -113,6 +113,7 @@ function osvjeziSazetke() {
         'Isporučeno m3', 'Preostalo m3', 'Isporučeno korisnika',
         'Za isporuku korisnika', 'Status ulice'], redovi);
     obojiStatus_(s, 10, redovi.length);
+    obojiPodatke_(vrsta.podaci);
   });
 
   osvjeziMjesta_(poVrsti);
@@ -127,13 +128,35 @@ function statusUlice_(g) {
   return g.isporuceno > 0.001 ? 'U TOKU' : 'NIJE POČETO';
 }
 
+// Dvije boje kroz cijelu tabelu, kartu i javnu stranicu.
+var BOJA_ISPORUCENO = '#d9ead3';    // svijetlo zelena - sve isporučeno
+var BOJA_NEISPORUCENO = '#f4cccc';  // svijetlo crvena - ima još preostalo
+
 function obojiStatus_(list, kolona, brojRedova) {
   if (!brojRedova) return;
   var opseg = list.getRange(2, kolona, brojRedova, 1);
   opseg.setBackgrounds(opseg.getValues().map(function (r) {
-    return [r[0] === 'ZAVRŠENO' ? '#d9ead3'
-      : r[0] === 'U TOKU' ? '#fff2cc' : '#f4cccc'];
+    return [r[0] === 'ZAVRŠENO' ? BOJA_ISPORUCENO : BOJA_NEISPORUCENO];
   }));
+}
+
+/** Boji cijeli red svakog korisnika prema tome je li isporuka završena. */
+function obojiPodatke_(nazivLista) {
+  var list = list_(nazivLista);
+  var t = citaj_(nazivLista);
+  if (!t.redovi.length) return;
+  var brojKolona = t.zaglavlje.length;
+  var boje = t.redovi.map(function (r) {
+    var odobreno = broj_(r[t.i['Odobreno m3']]);
+    var isporuceno = broj_(r[t.i['Isporučeno m3']]);
+    var preostalo = Math.max(okrugli_(odobreno - isporuceno), 0);
+    var boja = (preostalo <= 0.001 && isporuceno > 0)
+      ? BOJA_ISPORUCENO : BOJA_NEISPORUCENO;
+    var red = [];
+    for (var i = 0; i < brojKolona; i++) red.push(boja);
+    return red;
+  });
+  list.getRange(2, 1, boje.length, brojKolona).setBackgrounds(boje);
 }
 
 function osvjeziMjesta_(poVrsti) {

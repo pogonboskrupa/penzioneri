@@ -147,6 +147,26 @@ def sazetak_ulica(podaci):
                          ascending=[False, True, True]).reset_index(drop=True)
 
 
+BOJA_ISPORUCENO = "FFD9EAD3"    # svijetlo zelena
+BOJA_NEISPORUCENO = "FFF4CCCC"  # svijetlo crvena
+
+
+def oboji_listove(writer, listovi):
+    """Cijeli red korisnika/ulice u zelenoj ili crvenoj nijansi."""
+    from openpyxl.styles import PatternFill
+
+    zelena = PatternFill("solid", fgColor=BOJA_ISPORUCENO)
+    crvena = PatternFill("solid", fgColor=BOJA_NEISPORUCENO)
+    for naziv, df in listovi.items():
+        if "Preostalo m3" not in df.columns:
+            continue
+        list_ = writer.sheets[naziv]
+        for i, preostalo in enumerate(df["Preostalo m3"], start=2):
+            ispuna = zelena if float(preostalo) <= 0.001 else crvena
+            for kolona in range(1, len(df.columns) + 1):
+                list_.cell(row=i, column=kolona).fill = ispuna
+
+
 def main():
     dijelovi = {v: ucitaj(v, p, m) for v, p, m in VRSTE}
     sve = pd.concat(dijelovi.values(), ignore_index=True)
@@ -200,6 +220,7 @@ def main():
                         engine="openpyxl") as w:
         for naziv, df in listovi.items():
             df.to_excel(w, sheet_name=naziv, index=False)
+        oboji_listove(w, listovi)
     for naziv, df in listovi.items():
         df.to_csv(os.path.join(izlaz, f"{naziv}.csv"), index=False)
 

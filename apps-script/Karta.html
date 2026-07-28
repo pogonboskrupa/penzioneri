@@ -21,6 +21,12 @@
   table { border-collapse: collapse; width: 100%; font-size: 12px; }
   td { padding: 2px 4px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
   .gotov { color: #188038; } .ceka { color: #d93025; font-weight: bold; }
+  tr.red-isporuceno { background: #d9ead3; }   /* svijetlo zeleno = isporučeno */
+  tr.red-ceka { background: #f4cccc; }          /* svijetlo crveno = nije isporučeno */
+  .stavka.ulica-zavrsena { background: #d9ead3; }
+  .stavka.ulica-ceka { background: #f4cccc; }
+  .stavka.ulica-zavrsena:hover { background: #cbe0c2; }
+  .stavka.ulica-ceka:hover { background: #eebcbc; }
   .upozorenje { background: #fff4e5; border: 1px solid #f9ab00; padding: 6px 8px;
                 font-size: 12px; margin-bottom: 8px; }
   a.nav { font-size: 12px; }
@@ -215,7 +221,8 @@ function popupHtml(tacka, z) {
   z.korisnici.slice().sort(function (a, b) { return b.k.preostalo - a.k.preostalo; })
     .forEach(function (r) {
       var k = r.k, gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
-      html += '<tr><td>' + (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime +
+      html += '<tr class="' + (gotov ? 'red-isporuceno' : 'red-ceka') + '">' +
+        '<td>' + (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime +
         '</strong> <span style="color:#666">' + kratkaKategorija(k.kategorija) +
         ' · ' + r.vrsta + '</span></td><td>' +
         (gotov ? 'isporučeno ' + k.isporuceno + ' m3' +
@@ -291,7 +298,7 @@ function crtaj() {
   spisak.innerHTML = '';
   redovi.forEach(function (r) {
     var d = document.createElement('div');
-    d.className = 'stavka';
+    d.className = 'stavka ' + (r.z.preostalo <= 0.001 ? 'ulica-zavrsena' : 'ulica-ceka');
     d.innerHTML = '<span class="znak" style="background:' + boja(r.z) + '"></span>' +
       '<strong>' + r.tacka.ulica + '</strong> <span style="color:#666">' +
       r.tacka.mjesto + '</span>' + oznakaTacnosti(r.tacka) +
@@ -321,7 +328,8 @@ function prikaziDetalje(tacka, z) {
   z.korisnici.forEach(function (r) {
     var k = r.k;
     var gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
-    html += '<tr><td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
+    html += '<tr class="' + (gotov ? 'red-isporuceno' : 'red-ceka') + '">' +
+      '<td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
       (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime + '</strong><br>' +
       '<span style="color:#666">' + kratkaKategorija(k.kategorija) + ' · ' +
       r.vrsta + (k.telefon ? ' · ' + k.telefon : '') +

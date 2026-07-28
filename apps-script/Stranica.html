@@ -57,8 +57,14 @@
   .tabela-korisnika th, .tabela-korisnika td { padding:6px 8px; border-bottom:1px solid #f0f0f0; text-align:left; }
   .tabela-korisnika thead th { background:#f1f3f4; position:sticky; top:0; font-size:11px;
             text-transform:uppercase; color:#5f6368; }
+  tr.red-isporuceno { background:#d9ead3; }   /* svijetlo zeleno = isporučeno */
+  tr.red-ceka { background:#f4cccc; }          /* svijetlo crveno = nije isporučeno */
   .tabela-korisnika tr.red-isporuceno td:first-child { border-left:4px solid var(--zelena); }
   .tabela-korisnika tr.red-ceka td:first-child { border-left:4px solid var(--crvena); }
+  .stavka.ulica-zavrsena { background:#d9ead3; }
+  .stavka.ulica-ceka { background:#f4cccc; }
+  .stavka.ulica-zavrsena:hover { background:#cbe0c2; }
+  .stavka.ulica-ceka:hover { background:#eebcbc; }
   .tabela-korisnika select, .tabela-korisnika input[type=search] {
             width:100%; font-size:12px; padding:3px 4px; border:1px solid var(--linija); border-radius:4px; }
   .broj-rezultata { padding:6px 8px; font-size:12px; color:#5f6368; }
@@ -358,7 +364,8 @@ function popupHtml(tacka, z) {
   z.korisnici.slice().sort(function (a, b) { return b.k.preostalo - a.k.preostalo; })
     .forEach(function (r) {
       var k = r.k, gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
-      html += '<tr><td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
+      html += '<tr class="' + (gotov ? 'red-isporuceno' : 'red-ceka') + '">' +
+        '<td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
         (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime + '</strong> ' +
         kategorijaZnak(k.kategorija) + '<br><span style="color:#5f6368">' +
         r.vrsta + '</span></td><td>' +
@@ -500,7 +507,7 @@ function crtaj() {
   spisak.innerHTML = redovi.length ? '' : '<div class="poruka">Nema rezultata.</div>';
   redovi.forEach(function (r) {
     var d = document.createElement('div');
-    d.className = 'stavka';
+    d.className = 'stavka ' + (r.z.preostalo <= 0.001 ? 'ulica-zavrsena' : 'ulica-ceka');
     d.innerHTML = '<span class="znak" style="background:' + boja(r.z) + '"></span>' +
       '<strong>' + r.tacka.ulica + '</strong> <span style="color:#5f6368">' +
       r.tacka.mjesto + '</span>' + oznakaTacnosti(r.tacka) +
@@ -535,7 +542,8 @@ function otvori(tacka, z, element) {
   z.korisnici.sort(function (a, b) { return b.k.preostalo - a.k.preostalo; });
   z.korisnici.forEach(function (r) {
     var k = r.k, gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
-    html += '<tr><td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
+    html += '<tr class="' + (gotov ? 'red-isporuceno' : 'red-ceka') + '">' +
+      '<td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
       (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime + '</strong> ' +
       kategorijaZnak(k.kategorija) + '<br>' +
       '<span style="color:#5f6368">' + r.vrsta +
