@@ -70,6 +70,13 @@
                        cursor:pointer; border:1px solid #1a73e8; color:#1a73e8;
                        background:#fff; border-radius:4px; }
   .dugme-ispravi.aktivno { background:#d93025; color:#fff; border-color:#d93025; }
+  .kontekst-popup .leaflet-popup-content-wrapper { padding:0; border-radius:6px; }
+  .kontekst-popup .leaflet-popup-content { margin:0; }
+  .kontekst-meni { display:flex; flex-direction:column; min-width:160px; }
+  .kontekst-meni button { border:0; background:#fff; text-align:left; padding:9px 14px;
+            font-size:13px; cursor:pointer; border-bottom:1px solid #eee; }
+  .kontekst-meni button:last-child { border-bottom:0; }
+  .kontekst-meni button:hover { background:#f1f3f4; }
   @media (max-width:700px){ #karta{height:44vh;} #spisak{max-height:none;} }
 </style>
 </head>
@@ -440,6 +447,23 @@ function crtajTabelu() {
     redovi.length + ' od ' + SPISAK.length + ' korisnika';
 }
 
+/** Desni klik na pin: mali meni "Info" / "Ispravi lokaciju". */
+function prikaziKontekstniMeni(latlng, tacka, z) {
+  var sadrzaj = '<div class="kontekst-meni">' +
+    '<button id="kmInfo">ℹ️ Info</button>' +
+    '<button id="kmIspravi">📍 Ispravi lokaciju</button></div>';
+  L.popup({ closeButton: false, className: 'kontekst-popup', offset: [0, -4] })
+    .setLatLng(latlng).setContent(sadrzaj).openOn(karta);
+  document.getElementById('kmInfo').onclick = function () {
+    karta.closePopup();
+    otvori(tacka, z);
+  };
+  document.getElementById('kmIspravi').onclick = function () {
+    karta.closePopup();
+    pokreniPostavljanje(tacka.kljuc, null);
+  };
+}
+
 function crtaj() {
   sloj.clearLayers();
   var samoPreostalo = document.getElementById('samoPreostalo').checked;
@@ -462,6 +486,10 @@ function crtaj() {
       marker.bindTooltip(tooltipHtml(tacka, z), { direction: 'top' });
       marker.bindPopup(popupHtml(tacka, z), { maxWidth: 340, maxHeight: 320 });
       marker.on('click', function () { otvori(tacka, z); });
+      marker.on('contextmenu', function (e) {
+        L.DomEvent.preventDefault(e.originalEvent);
+        prikaziKontekstniMeni(e.latlng, tacka, z);
+      });
     }
     redovi.push({ tacka: tacka, z: z, marker: marker });
   });

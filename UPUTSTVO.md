@@ -112,6 +112,11 @@ Krupe) i da se snađe i kad je naziv ulice upisan približno:
    gdje treba (npr. gdje živi kupac) – pin se odmah snimi u `ULICE_GEO` s
    oznakom „ručno” i geokodiranje je više neće dirati.
 
+**Desni klik na pin** (ili duži pritisak na telefonu) otvara brzi meni s dvije
+stavke: **ℹ️ Info** (isto što i klik – detalji i spisak korisnika) i
+**📍 Ispravi lokaciju** (odmah uključi „klikni na kartu" način rada, bez
+prethodnog otvaranja detalja).
+
 **Ako je pin na krivom mjestu** (svejedno da li je „približno” ili čak
 označen kao „ulica”, a Google je ipak pogodio pogrešnu lokaciju) – klikni na
 taj pin ili na ulicu u desnom spisku da otvoriš detalje, pa dugme
