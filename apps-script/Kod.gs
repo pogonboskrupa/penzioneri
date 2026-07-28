@@ -174,7 +174,9 @@ function ucitajKoordinate_() {
     if (k && r[t.i['Lat']] !== '' && r[t.i['Lng']] !== '') {
       mapa[k] = {
         lat: broj_(r[t.i['Lat']]), lng: broj_(r[t.i['Lng']]),
-        tacnost: t.i['Tačnost'] !== undefined ? String(r[t.i['Tačnost']] || '') : ''
+        tacnost: t.i['Tačnost'] !== undefined ? String(r[t.i['Tačnost']] || '') : '',
+        podudaranje: t.i['Podudaranje sa'] !== undefined
+          ? String(r[t.i['Podudaranje sa']] || '') : ''
       };
     }
   });
@@ -186,25 +188,28 @@ function osvjeziGeo_(poVrsti, sveUlice, koordinate) {
     var u = sveUlice[k];
     var c = poVrsti['CIJEPANO'][k] || { preostalo: 0, isporuceno: 0, korisnika: 0 };
     var d = poVrsti['U DUGOM'][k] || { preostalo: 0, isporuceno: 0, korisnika: 0 };
-    var xy = koordinate[k] || { lat: '', lng: '', tacnost: '' };
+    var xy = koordinate[k] || { lat: '', lng: '', tacnost: '', podudaranje: '' };
     var adresa = u.ulica && u.ulica !== '(bez ulice)'
       ? u.ulica + ', ' + u.mjesto + ', Bosna i Hercegovina'
       : u.mjesto + ', Bosna i Hercegovina';
     return [u.mjesto, u.ulica, k,
       okrugli_(c.preostalo), okrugli_(c.isporuceno),
       okrugli_(d.preostalo), okrugli_(d.isporuceno),
-      okrugli_(c.preostalo + d.preostalo), adresa, xy.lat, xy.lng, xy.tacnost];
+      okrugli_(c.preostalo + d.preostalo), adresa, xy.lat, xy.lng, xy.tacnost,
+      xy.podudaranje];
   }).sort(function (a, b) { return b[7] - a[7]; });
 
   var s = upisi_(LIST_GEO, ['Mjesto', 'Ulica', 'Adresa ključ',
     'Preostalo CIJEPANO m3', 'Isporučeno CIJEPANO m3',
     'Preostalo U DUGOM m3', 'Isporučeno U DUGOM m3',
-    'Preostalo ukupno m3', 'Adresa za kartu', 'Lat', 'Lng', 'Tačnost'], redovi);
+    'Preostalo ukupno m3', 'Adresa za kartu', 'Lat', 'Lng', 'Tačnost',
+    'Podudaranje sa'], redovi);
   if (redovi.length) {
     var opseg = s.getRange(2, 12, redovi.length, 1);
     opseg.setBackgrounds(opseg.getValues().map(function (r) {
       return [r[0] === 'ulica' ? '#d9ead3' : r[0] === 'naselje' ? '#fff2cc'
-        : r[0] === 'ručno' ? '#cfe2f3' : r[0] === 'nesvrstano' ? '#f4cccc' : null];
+        : r[0] === 'ručno' ? '#cfe2f3' : r[0] === 'slično' ? '#d0e0fb'
+        : r[0] === 'nesvrstano' ? '#f4cccc' : null];
     }));
   }
 }
@@ -221,75 +226,141 @@ function uOkviru_(loc) {
 }
 
 /**
- * Pokušava geokodirati tačnu ulicu; ako Google ne nađe baš tu ulicu (ili
+ * Pokušava geokodirati tačnu ulicu. Ako Google ne nađe baš tu ulicu (ili
  * vrati samo približan pogodak - partial_match), NE prihvata taj rezultat
- * jer u praksi zna vratiti centar sasvim drugog mjesta. Umjesto toga proba
- * samo naselje (kolona Mjesto) - to je tačnije nego pogrešna ulica.
+ * jer u praksi zna vratiti centar sasvim drugog mjesta.
  */
-function geokodirajJedno_(geokoder, ulicaAdresa, mjestoAdresa) {
-  if (ulicaAdresa) {
-    try {
-      var o = geokoder.geocode(ulicaAdresa);
-      if (o.status === 'OK' && o.results.length && !o.results[0].partial_match) {
-        var loc = o.results[0].geometry.location;
-        if (uOkviru_(loc)) return { lat: loc.lat, lng: loc.lng, tacnost: 'ulica' };
-      }
-    } catch (e) { /* nastavi na naselje */ }
-    Utilities.sleep(200);
-  }
+function geokodirajUlicu_(geokoder, adresaUlice) {
+  if (!adresaUlice) return null;
   try {
-    var o2 = geokoder.geocode(mjestoAdresa);
-    if (o2.status === 'OK' && o2.results.length) {
-      var loc2 = o2.results[0].geometry.location;
-      if (uOkviru_(loc2)) return { lat: loc2.lat, lng: loc2.lng, tacnost: 'naselje' };
+    var o = geokoder.geocode(adresaUlice);
+    if (o.status === 'OK' && o.results.length && !o.results[0].partial_match) {
+      var loc = o.results[0].geometry.location;
+      if (uOkviru_(loc)) return { lat: loc.lat, lng: loc.lng };
     }
-  } catch (e) { /* pada u nesvrstano */ }
+  } catch (e) { /* nema rezultata */ }
   return null;
+}
+
+function geokodirajMjesto_(geokoder, adresaMjesta) {
+  try {
+    var o = geokoder.geocode(adresaMjesta);
+    if (o.status === 'OK' && o.results.length) {
+      var loc = o.results[0].geometry.location;
+      if (uOkviru_(loc)) return { lat: loc.lat, lng: loc.lng };
+    }
+  } catch (e) { /* nema rezultata */ }
+  return null;
+}
+
+var PRAG_SLICNOSTI_ULICE = 0.5;
+
+function dodajUzorak_(poMjestu, mjesto, ulica, lat, lng) {
+  mjesto = String(mjesto).trim();
+  if (!poMjestu[mjesto]) poMjestu[mjesto] = [];
+  poMjestu[mjesto].push({ ulica: String(ulica).trim(), lat: lat, lng: lng });
+}
+
+/**
+ * Traži najsličniji naziv ulice koja je VEĆ tačno geokodirana u istom
+ * mjestu - npr. upisano "Bihacka" (bez dijakritike ili skraćeno) nađe
+ * već geokodiranu "Bihaćka" u istom gradu i preuzme njenu lokaciju.
+ * To je pouzdanije nego centar cijelog naselja.
+ */
+function nadjiSlicnuUlicu_(poMjestu, mjesto, ulica) {
+  var uzorci = poMjestu[String(mjesto).trim()] || [];
+  var a = pojednostavi_(ulica), najbolji = null, ocjena = -1;
+  // isti naziv bez dijakritike (npr. "Bihacka" / "Bihaćka") = najbolji mogući pogodak
+  uzorci.forEach(function (u) {
+    var o = slicnost_(a, pojednostavi_(u.ulica));
+    if (o > ocjena) { ocjena = o; najbolji = u; }
+  });
+  return ocjena >= PRAG_SLICNOSTI_ULICE ? najbolji : null;
 }
 
 function geokodirajUlice() {
   var s = list_(LIST_GEO);
   var t = citaj_(LIST_GEO);
   var geokoder = Maps.newGeocoder().setRegion('ba');
-  var uliceN = 0, naseljeN = 0, nesvrstanoN = 0;
+  var uliceN = 0, slicnoN = 0, naseljeN = 0, nesvrstanoN = 0;
+  var poMjestu = {};         // mjesto -> ulice već tačno geokodirane (uzorak za "slično")
+  var zaDrugiPokusaj = [];   // redovi kojima tačna ulica nije nađena
 
+  // uzorci iz ranijih pokretanja (kolone Tačnost = "ulica")
+  t.redovi.forEach(function (r) {
+    var tac = t.i['Tačnost'] !== undefined ? String(r[t.i['Tačnost']] || '') : '';
+    if (tac === 'ulica' && r[t.i['Lat']] !== '' && r[t.i['Lng']] !== '') {
+      dodajUzorak_(poMjestu, r[t.i['Mjesto']], r[t.i['Ulica']],
+        broj_(r[t.i['Lat']]), broj_(r[t.i['Lng']]));
+    }
+  });
+
+  // 1. prolaz - tačna ulica
   t.redovi.forEach(function (r, idx) {
     var tacnostSad = t.i['Tačnost'] !== undefined ? String(r[t.i['Tačnost']] || '') : '';
-    if (tacnostSad === 'ručno') return;                  // ne diraj ručno postavljene
-    if (r[t.i['Lat']] !== '' && r[t.i['Lng']] !== '' && tacnostSad === 'ulica') return;
+    if (tacnostSad === 'ručno' || tacnostSad === 'ulica') return;  // ne diraj
 
     var ulica = String(r[t.i['Ulica']] || '').trim();
     var mjesto = String(r[t.i['Mjesto']] || '').trim();
     var adresaUlice = ulica && ulica !== '(bez ulice)'
       ? ulica + ', ' + mjesto + ', Bosna i Hercegovina' : '';
-    var adresaMjesta = mjesto + ', Bosna i Hercegovina';
 
-    var rezultat = geokodirajJedno_(geokoder, adresaUlice, adresaMjesta);
-    var red = idx + 2;
-    if (rezultat) {
-      s.getRange(red, t.i['Lat'] + 1).setValue(rezultat.lat);
-      s.getRange(red, t.i['Lng'] + 1).setValue(rezultat.lng);
-      if (t.i['Tačnost'] !== undefined) {
-        s.getRange(red, t.i['Tačnost'] + 1).setValue(rezultat.tacnost);
-      }
-      if (rezultat.tacnost === 'ulica') uliceN++; else naseljeN++;
+    var rez = geokodirajUlicu_(geokoder, adresaUlice);
+    if (adresaUlice) Utilities.sleep(200);
+    if (rez) {
+      upisiGeoRed_(s, t, idx, rez.lat, rez.lng, 'ulica', '');
+      dodajUzorak_(poMjestu, mjesto, ulica, rez.lat, rez.lng);
+      uliceN++;
     } else {
-      if (t.i['Tačnost'] !== undefined) {
-        s.getRange(red, t.i['Tačnost'] + 1).setValue('nesvrstano');
-      }
+      zaDrugiPokusaj.push({ idx: idx, ulica: ulica, mjesto: mjesto });
+    }
+  });
+
+  // 2. prolaz - slična ulica u istom mjestu, već tačno geokodirana
+  var zaTreciPokusaj = [];
+  zaDrugiPokusaj.forEach(function (stavka) {
+    var slicna = stavka.ulica && stavka.ulica !== '(bez ulice)'
+      ? nadjiSlicnuUlicu_(poMjestu, stavka.mjesto, stavka.ulica) : null;
+    if (slicna) {
+      upisiGeoRed_(s, t, stavka.idx, slicna.lat, slicna.lng, 'slično', slicna.ulica);
+      slicnoN++;
+    } else {
+      zaTreciPokusaj.push(stavka);
+    }
+  });
+
+  // 3. prolaz - centar naselja (Mjesto)
+  zaTreciPokusaj.forEach(function (stavka) {
+    var rez = geokodirajMjesto_(geokoder, stavka.mjesto + ', Bosna i Hercegovina');
+    Utilities.sleep(200);
+    if (rez) {
+      upisiGeoRed_(s, t, stavka.idx, rez.lat, rez.lng, 'naselje', '');
+      naseljeN++;
+    } else {
+      upisiGeoRed_(s, t, stavka.idx, '', '', 'nesvrstano', '');
       nesvrstanoN++;
     }
-    Utilities.sleep(150);
   });
 
   SpreadsheetApp.getUi().alert(
     'Tačno po ulici: ' + uliceN + '\n' +
+    'Po sličnoj već geokodiranoj ulici u istom mjestu: ' + slicnoN + '\n' +
     'Približno, po naselju (Mjesto): ' + naseljeN + '\n' +
     'Nesvrstano (bez lokacije): ' + nesvrstanoN +
     (nesvrstanoN
       ? '\n\nNesvrstane ulice postavi ručno: 🪵 Drva → Otvori kartu → ' +
         'lijevi spisak "Nesvrstano" → Postavi pin → klik na kartu.'
       : ''));
+}
+
+function upisiGeoRed_(list, t, idx, lat, lng, tacnost, podudaranje) {
+  var red = idx + 2;
+  list.getRange(red, t.i['Lat'] + 1).setValue(lat);
+  list.getRange(red, t.i['Lng'] + 1).setValue(lng);
+  if (t.i['Tačnost'] !== undefined) list.getRange(red, t.i['Tačnost'] + 1).setValue(tacnost);
+  if (t.i['Podudaranje sa'] !== undefined) {
+    list.getRange(red, t.i['Podudaranje sa'] + 1).setValue(podudaranje);
+  }
 }
 
 /**
@@ -335,6 +406,8 @@ function podaciZaKartu() {
       lat: imaXY ? broj_(lat) : null,   // bez koordinata: samo u spisku, ne na karti
       lng: imaXY ? broj_(lng) : null,
       tacnost: geo.i['Tačnost'] !== undefined ? String(r[geo.i['Tačnost']] || '') : '',
+      podudaranje: geo.i['Podudaranje sa'] !== undefined
+        ? String(r[geo.i['Podudaranje sa']] || '') : '',
       vrste: {}
     };
   });

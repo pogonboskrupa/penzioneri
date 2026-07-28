@@ -92,22 +92,30 @@ Na karti:
   otpremnicom) i **ko još čeka** (koliko m³, telefon), plus dugme
   **Navigacija (Google Maps)** za vozača kamiona.
 
-**Tačnost lokacije** – geokodiranje sad radi u dva koraka da se izbjegnu
+**Tačnost lokacije** – geokodiranje sad radi u tri koraka da se izbjegnu
 pogrešni pogoci (npr. da ulica iz Bosanske Otoke ispadne u centru Bosanske
-Krupe):
+Krupe) i da se snađe i kad je naziv ulice upisan približno:
 1. prvo se traži **tačna ulica**; rezultat se prihvata samo ako Google vrati
    pun (ne približan) pogodak unutar područja opštine – takva ulica je
    označena punim bijelim obrubom kruga;
-2. ako tačna ulica nije nađena, koristi se **centar naselja** (kolona
-   Mjesto) – krug tad ima isprekidan sivi obrub i piše „(približno)“;
-3. ako ni naselje nije prepoznato, ulica ide u **spisak „Nesvrstano“** u
+2. ako tačna ulica nije nađena (npr. neko je upisao „Bihacka” bez č/ć/ž/š,
+   ili skraćeno kao „Dž Čaušević”), traži se **najsličniji naziv ulice u
+   istom mjestu koja je već tačno geokodirana** (npr. postojeća „Bihaćka”)
+   i preuzima se njena lokacija – krug ima isprekidan obrub i piše
+   „(približno, po sličnoj ulici …)”; ako nijedna ulica u tom mjestu nije
+   dovoljno slična, ide se dalje;
+3. ako ni to ne uspije, koristi se **centar naselja** (kolona Mjesto) –
+   isto isprekidan obrub, piše samo „(približno)”;
+4. ako ni naselje nije prepoznato, ulica ide u **spisak „Nesvrstano”** u
    lijevom/bočnom panelu na karti (bez pina) – nju postavljaš ručno:
    klikni **Postavi pin** pored ulice u spisku, pa klikni na kartu tačno
    gdje treba (npr. gdje živi kupac) – pin se odmah snimi u `ULICE_GEO` s
-   oznakom „ručno“ i geokodiranje je više neće dirati.
+   oznakom „ručno” i geokodiranje je više neće dirati.
 
-Ponovno pokretanje **Geokodiraj ulice** ne dira ulice već označene „ulica“
-ili „ručno“ – samo pokušava poboljšati one označene „naselje“ ili „nesvrstano“.
+Ponovno pokretanje **Geokodiraj ulice** ne dira ulice već označene „ulica”
+ili „ručno” – samo pokušava poboljšati one označene „slično”, „naselje” ili
+„nesvrstano”. Na koju je ulicu nešto namapirano vidi se u koloni
+**„Podudaranje sa”** u `ULICE_GEO`.
 
 ### Kategorija korisnika (penzioner / RVI / sindikat)
 U listovima `PODACI_*` postoji kolona **Kategorija**. U izvornim `.xls`

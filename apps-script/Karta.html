@@ -169,6 +169,10 @@ function kratkaKategorija(k) {
 }
 
 function oznakaTacnosti(tacka) {
+  if (tacka.tacnost === 'slično') {
+    return ' <span class="priblizno">(približno, po sličnoj ulici' +
+      (tacka.podudaranje ? ' "' + tacka.podudaranje + '"' : '') + ')</span>';
+  }
   if (tacka.tacnost === 'naselje') return ' <span class="priblizno">(približno, centar naselja)</span>';
   if (tacka.tacnost === 'ručno') return ' <span class="priblizno">(ručno postavljeno)</span>';
   return '';
@@ -218,7 +222,7 @@ function crtaj() {
     ukupnoPreostalo += z.preostalo;
     ukupnoIsporuceno += z.isporuceno;
 
-    var priblizno = tacka.tacnost === 'naselje';
+    var priblizno = tacka.tacnost === 'naselje' || tacka.tacnost === 'slično';
     var marker = L.circleMarker([tacka.lat, tacka.lng], {
       radius: Math.max(7, Math.min(26, 6 + Math.sqrt(z.preostalo) * 3)),
       color: priblizno ? '#5f6368' : '#fff', weight: priblizno ? 2 : 2,
