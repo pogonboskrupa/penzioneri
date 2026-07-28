@@ -98,15 +98,14 @@
 <div class="kartice" id="kartice"></div>
 
 <div class="alatna">
-  <strong>Vrsta:</strong>
-  <label><input type="radio" name="vrsta" value="SVE" checked> Obje</label>
-  <label><input type="radio" name="vrsta" value="CIJEPANO"> Cijepano</label>
-  <label><input type="radio" name="vrsta" value="U DUGOM"> U dugom</label>
+  <strong>Grupa:</strong>
+  <span id="izborVrste"><label><input type="radio" name="vrsta" value="SVE" checked> Sve</label></span>
   <label>Kategorija:
     <select id="kategorija">
       <option value="SVE">sve</option>
       <option value="PENZIONER">penzioneri</option>
       <option value="RVI">RVI</option>
+      <option value="PORODICA ŠEHIDA">porodica šehida</option>
       <option value="SINDIKAT">sindikat</option>
       <option value="OSTALO">ostalo</option>
     </select>
@@ -170,9 +169,20 @@
 
 <script>
 var PRIKAZI_TELEFONE = <?= prikaziTelefone ? 'true' : 'false' ?>;
-var SVE = [], SPISAK = [], BEZ_KOORDINATA = [], karta, sloj, oznaceni = null;
+var SVE = [], SPISAK = [], BEZ_KOORDINATA = [], VRSTE = [], karta, sloj, oznaceni = null;
 var postavljaSeKljuc = null;
 var mojaPozicija = null, markerPozicije = null;
+
+/** Radio dugmad za svaku grupu (VRSTE) - grade se iz podataka poslije prvog učitavanja. */
+function izgradiIzborVrste() {
+  var el = document.getElementById('izborVrste');
+  el.innerHTML = '<label><input type="radio" name="vrsta" value="SVE" checked> Sve</label>' +
+    VRSTE.map(function (n) {
+      return '<label><input type="radio" name="vrsta" value="' + n.replace(/"/g, '&quot;') +
+        '"> ' + n.charAt(0) + n.slice(1).toLowerCase() + '</label>';
+    }).join('');
+  document.querySelectorAll('input[name=vrsta]').forEach(function (el2) { el2.onchange = crtaj; });
+}
 
 function pokreni() {
   karta = L.map('karta').setView([44.88, 16.15], 12);
@@ -359,6 +369,10 @@ function ucitaj() {
     .withSuccessHandler(function (o) {
       SVE = o.tacke || [];
       BEZ_KOORDINATA = o.bezKoordinata || [];
+      if (o.vrste && o.vrste.length && VRSTE.join() !== o.vrste.join()) {
+        VRSTE = o.vrste;
+        izgradiIzborVrste();
+      }
       document.getElementById('osvjezeno').textContent =
         'Stanje iz tabele na dan ' + o.osvjezeno;
       kartice(o.zbir);
@@ -388,15 +402,18 @@ function kartica(naslov, z) {
 }
 
 function kartice(zbir) {
-  var c = zbir['CIJEPANO'], d = zbir['U DUGOM'];
-  var ukupno = {
-    korisnika: c.korisnika + d.korisnika, gotovih: c.gotovih + d.gotovih,
-    odobreno: Math.round((c.odobreno + d.odobreno) * 100) / 100,
-    isporuceno: Math.round((c.isporuceno + d.isporuceno) * 100) / 100,
-    preostalo: Math.round((c.preostalo + d.preostalo) * 100) / 100
-  };
-  document.getElementById('kartice').innerHTML =
-    kartica('Cijepano', c) + kartica('U dugom', d) + kartica('Ukupno', ukupno);
+  var ukupno = { korisnika: 0, gotovih: 0, odobreno: 0, isporuceno: 0, preostalo: 0 };
+  var html = VRSTE.map(function (naziv) {
+    var z = zbir[naziv] || { korisnika: 0, gotovih: 0, odobreno: 0, isporuceno: 0, preostalo: 0 };
+    ukupno.korisnika += z.korisnika; ukupno.gotovih += z.gotovih;
+    ukupno.odobreno += z.odobreno; ukupno.isporuceno += z.isporuceno;
+    ukupno.preostalo += z.preostalo;
+    return kartica(naziv.charAt(0) + naziv.slice(1).toLowerCase(), z);
+  }).join('');
+  ['odobreno', 'isporuceno', 'preostalo'].forEach(function (k) {
+    ukupno[k] = Math.round(ukupno[k] * 100) / 100;
+  });
+  document.getElementById('kartice').innerHTML = html + kartica('Ukupno', ukupno);
 }
 
 function odabranaVrsta() {
@@ -433,8 +450,8 @@ function odgovaraPretrazi(tacka, z, tekst) {
   });
 }
 
-var BOJA_KATEGORIJE = { PENZIONER:'#1a73e8', RVI:'#8e24aa', SINDIKAT:'#00838f',
-                        OSTALO:'#5f6368' };
+var BOJA_KATEGORIJE = { PENZIONER:'#1a73e8', RVI:'#8e24aa', 'PORODICA ŠEHIDA':'#c2410c',
+                        SINDIKAT:'#00838f', OSTALO:'#5f6368' };
 
 function kategorijaZnak(k) {
   k = k || 'PENZIONER';
@@ -716,7 +733,6 @@ function otvori(tacka, z, element) {
   oznaceni = box;
 }
 
-document.querySelectorAll('input[name=vrsta]').forEach(function (el) { el.onchange = crtaj; });
 document.getElementById('samoPreostalo').onchange = crtaj;
 document.getElementById('kategorija').onchange = crtaj;
 document.getElementById('pretraga').oninput = crtaj;

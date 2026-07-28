@@ -1,0 +1,41 @@
+Mjesto,Ulica,Adresa ključ,Broj korisnika,Odobreno m3,Isporučeno m3,Preostalo m3,Isporučeno korisnika,Za isporuku korisnika,Status ulice
+Jezerski,Jezerski Bb Kanurići,Jezerski|JEZERSKI,7,67.0,0.0,67.0,0,7,NIJE POČETO
+Bosanska Krupa,Branilaca Grada-kod Redže,Bosanska Krupa|BRANILACA GRADA,14,94.0,37.0,57.0,4,10,U TOKU
+Bosanska Krupa,Hodžinac,Bosanska Krupa|HODZINAC,7,62.0,10.0,52.0,1,6,U TOKU
+Bosanska Otoka,Voloder,Bosanska Otoka|VOLODER,5,57.0,22.0,35.0,2,3,U TOKU
+Bosanska Krupa,Unska Bb Halkići,Bosanska Krupa|UNSKA,3,20.0,0.0,20.0,0,3,NIJE POČETO
+Bosanska Krupa,Zalug,Bosanska Krupa|ZALUG,2,20.0,0.0,20.0,0,2,NIJE POČETO
+Bastra Bb,Baštra,Bastra Bb|BASTRA,1,15.0,0.0,15.0,0,1,NIJE POČETO
+Bosanska Krupa,101 Muslimanska,Bosanska Krupa|101 MUSLIMANSKA,1,15.0,0.0,15.0,0,1,NIJE POČETO
+Bosanska Krupa,Omladinska,Bosanska Krupa|OMLADINSKA,2,12.0,0.0,12.0,0,2,NIJE POČETO
+Mahmić Selo,Mahmić Selo,Mahmić Selo|MAHMIC SELO,2,12.0,0.0,12.0,0,2,NIJE POČETO
+Besica Brdo,Vrlednica,Besica Brdo|VRLEDNICA,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Bosanska Krupa,11Slavne Sp/30,Bosanska Krupa|11SLAVNE SP,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Bosanska Krupa,511 Slavna,Bosanska Krupa|511 SLAVNA,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Bosanska Krupa,Bihaćka,Bosanska Krupa|BIHACKA,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Bosanska Krupa,Hasana Brkića,Bosanska Krupa|HASANA BRKICA,2,10.0,0.0,10.0,0,2,NIJE POČETO
+Bosanska Krupa,Podmračajska Bb-pored Pruge,Bosanska Krupa|PODMRACAJSKA PORED PRUGE,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Bosanska Krupa,Radnička,Bosanska Krupa|RADNICKA,2,10.0,0.0,10.0,0,2,NIJE POČETO
+Bosanska Krupa,Tećija,Bosanska Krupa|TECIJA,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Bosanska Krupa,Ul 10 Juli,Bosanska Krupa|10 JULA,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Bosanska Krupa,V. Badić,Bosanska Krupa|V BADIC,2,17.0,7.0,10.0,1,1,U TOKU
+Bosanska Krupa,Vrletnica,Bosanska Krupa|VRLETNICA,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Mahmic Most,Mahmić Most,Mahmic Most|MAHMIC MOST,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Mahmić Selo,Mahmić Most,Mahmić Selo|MAHMIC MOST,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Bosanska Krupa,Lipik,Bosanska Krupa|LIPIK,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Krupa,Dana Nezavisnosti,Bosanska Krupa|DANA NEZAVISNOSTI,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Bosanska Krupa,Dolovi,Bosanska Krupa|DOLOVI,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Bosanska Krupa,Gazijska,Bosanska Krupa|GAZIJSKA,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Bosanska Krupa,Kolodvorska,Bosanska Krupa|KOLODVORSKA,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Bosanska Krupa,Ostružnica,Bosanska Krupa|OSTRUZNICA,2,12.0,7.0,5.0,1,1,U TOKU
+Bosanska Krupa,Patriotske Lige,Bosanska Krupa|PATRIOTSKE LIGE,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Bosanska Krupa,Pazadžik,Bosanska Krupa|PAZADZIK,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Bosanska Krupa,Prvomajska,Bosanska Krupa|PRVOMAJSKA,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Bosanska Krupa,Sokak,Bosanska Krupa|SOKAK,2,10.0,5.0,5.0,1,1,U TOKU
+Bosanska Otoka,Bukovska,Bosanska Otoka|BUKOVSKA,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Bosanska Otoka,Otočkog Bataljona,Bosanska Otoka|OTOC BATALJON,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Ljusina,Ljusina,Ljusina|LJUSINA,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Zalug,101 Muslimanska,Zalug|101 MUSLIMANSKA,1,5.0,0.0,5.0,0,1,NIJE POČETO
+Bosanska Krupa,Trg Alije Izetbegović,Bosanska Krupa|TRG ALIJE IZETBEGOVIC,1,10.0,10.0,0.0,1,0,ZAVRŠENO
+Bosanska Otoka,Crkvina,Bosanska Otoka|CRKVINA,1,5.0,5.0,0.0,1,0,ZAVRŠENO
+Bosanska Otoka,Podmračajska,Bosanska Otoka|PODMRACAJSKA,1,15.0,15.0,0.0,1,0,ZAVRŠENO

@@ -1,11 +1,11 @@
 Mjesto,Ulica,Adresa ključ,Broj korisnika,Odobreno m3,Isporučeno m3,Preostalo m3,Isporučeno korisnika,Za isporuku korisnika,Status ulice
-Bosanska Krupa,Branilaca Grada,Bosanska Krupa|BRANILACA GRADA,38,213.5,69.5,147.0,11,27,U TOKU
+Bosanska Krupa,Branilaca Grada-kod Redže,Bosanska Krupa|BRANILACA GRADA,38,213.5,69.5,147.0,11,27,U TOKU
 Bosanska Otoka,Voloder,Bosanska Otoka|VOLODER,14,84.0,17.0,70.0,2,12,U TOKU
 Bosanska Krupa,Gen. Mir. Sedića,Bosanska Krupa|GEN MIR SEDICA,10,66.5,14.0,52.5,2,8,U TOKU
 Bosanska Krupa,Dolovi,Bosanska Krupa|DOLOVI,8,45.5,7.0,38.5,1,7,U TOKU
 Bosanska Krupa,Dana Nezavisnosti,Bosanska Krupa|DANA NEZAVISNOSTI,15,77.0,46.5,35.0,7,8,U TOKU
 Bosanska Krupa,Proleterska,Bosanska Krupa|PROLETERSKA,15,77.0,45.5,31.5,7,8,U TOKU
-Jezerski,Jezerski,Jezerski|JEZERSKI,5,31.5,0.0,31.5,0,5,NIJE POČETO
+Jezerski,Jezerski Bb Kanurići,Jezerski|JEZERSKI,5,31.5,0.0,31.5,0,5,NIJE POČETO
 Bosanska Krupa,505. Viteška,Bosanska Krupa|505 VITESKA,7,42.0,14.0,28.0,2,5,U TOKU
 Bosanska Krupa,Prvomajska,Bosanska Krupa|PRVOMAJSKA,11,56.0,31.0,28.0,4,7,U TOKU
 Bosanska Otoka,Otočki Heroja,Bosanska Otoka|OTOCKIH HEROJA,10,59.5,40.5,28.0,6,4,U TOKU
@@ -15,10 +15,10 @@ Bosanska Krupa,Hodžinac,Bosanska Krupa|HODZINAC,18,101.5,81.5,24.5,12,6,U TOKU
 Bosanska Krupa,Sokak,Bosanska Krupa|SOKAK,14,84.0,62.5,24.5,10,4,U TOKU
 Bosanska Krupa,Tećija,Bosanska Krupa|TECIJA,3,21.0,0.0,21.0,0,3,NIJE POČETO
 Bosanska Krupa,Zahum,Bosanska Krupa|ZAHUM,4,24.5,3.5,21.0,1,3,U TOKU
-Bosanska Otoka,Otoč. Bataljon,Bosanska Otoka|OTOC BATALJON,4,21.0,0.0,21.0,0,4,NIJE POČETO
+Bosanska Otoka,Otočkog Bataljona,Bosanska Otoka|OTOC BATALJON,4,21.0,0.0,21.0,0,4,NIJE POČETO
 Bosanska Krupa,101 Muslimanska,Bosanska Krupa|101 MUSLIMANSKA,4,17.5,0.0,17.5,0,4,NIJE POČETO
 Bosanska Krupa,511 Slavna,Bosanska Krupa|511 SLAVNA,10,63.0,48.5,17.5,7,3,U TOKU
-Bosanska Krupa,Unska,Bosanska Krupa|UNSKA,8,49.0,31.5,17.5,5,3,U TOKU
+Bosanska Krupa,Unska Bb Halkići,Bosanska Krupa|UNSKA,8,49.0,31.5,17.5,5,3,U TOKU
 Bosanska Krupa,Zalug,Bosanska Krupa|ZALUG,5,21.0,5.0,17.5,1,4,U TOKU
 Bosanska Krupa,Bihaćka,Bosanska Krupa|BIHACKA,5,21.0,8.5,14.0,2,3,U TOKU
 Bosanska Krupa,Lamela Ii,Bosanska Krupa|LAMELA,10,45.5,34.5,14.0,7,3,U TOKU
@@ -43,16 +43,16 @@ Bosanska Otoka,Donja Ljusina,Bosanska Otoka|DONJA LJUSINA,1,7.0,0.0,7.0,0,1,NIJE
 Bosanska Otoka,Kajtezi,Bosanska Otoka|KAJTEZI,1,7.0,0.0,7.0,0,1,NIJE POČETO
 Bosanska Otoka,Željeznička,Bosanska Otoka|ZELJEZNICKA,4,17.5,10.5,7.0,3,1,U TOKU
 Pištaline,Pištaline,Pištaline|PISTALINE,1,7.0,0.0,7.0,0,1,NIJE POČETO
-Bosanska Krupa,10 Juli,Bosanska Krupa|10 JULA,1,3.5,0.0,3.5,0,1,NIJE POČETO
 Bosanska Krupa,5 Korpus,Bosanska Krupa|5 KORPUSA,2,10.5,7.0,3.5,1,1,U TOKU
 Bosanska Krupa,Mašići,Bosanska Krupa|MASICI,2,10.5,7.0,3.5,1,1,U TOKU
+Bosanska Krupa,Ul 10 Juli,Bosanska Krupa|10 JULA,1,3.5,0.0,3.5,0,1,NIJE POČETO
 Bosanska Krupa,Voloder,Bosanska Krupa|VOLODER,1,3.5,0.0,3.5,0,1,NIJE POČETO
 Bosanska Krupa,Šehidska,Bosanska Krupa|SEHIDSKA,3,14.0,10.5,3.5,2,1,U TOKU
 Bosanska Otoka,Manda,Bosanska Otoka|MANDA,1,3.5,0.0,3.5,0,1,NIJE POČETO
 Bosanska Otoka,Proleterska,Bosanska Otoka|PROLETERSKA,1,3.5,0.0,3.5,0,1,NIJE POČETO
 Bužim,Branilaca Grada,Bužim|BRANILACA GRADA,1,3.5,0.0,3.5,0,1,NIJE POČETO
 Bužim,Čava,Bužim|CAVA,1,3.5,0.0,3.5,0,1,NIJE POČETO
-Bosanska Krupa,(bez ulice),Bosanska Krupa|NAN,1,7.0,7.0,0.0,1,0,ZAVRŠENO
+Bosanska Krupa,(bez ulice),Bosanska Krupa|(BEZ ULICE),1,7.0,7.0,0.0,1,0,ZAVRŠENO
 Bosanska Krupa,503 Slavna,Bosanska Krupa|503 SLAVNA,1,3.5,3.5,0.0,1,0,ZAVRŠENO
 Bosanska Krupa,Bosanska,Bosanska Krupa|BOSANSKA,4,24.5,24.5,0.0,4,0,ZAVRŠENO
 Bosanska Krupa,Gazijska,Bosanska Krupa|GAZIJSKA,1,7.0,7.0,0.0,1,0,ZAVRŠENO

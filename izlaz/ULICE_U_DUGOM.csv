@@ -1,8 +1,8 @@
 Mjesto,Ulica,Adresa ključ,Broj korisnika,Odobreno m3,Isporučeno m3,Preostalo m3,Isporučeno korisnika,Za isporuku korisnika,Status ulice
-Bosanska Krupa,Branilaca Grada,Bosanska Krupa|BRANILACA GRADA,4,45.0,28.0,17.0,2,2,U TOKU
+Bosanska Krupa,Branilaca Grada-kod Redže,Bosanska Krupa|BRANILACA GRADA,4,45.0,28.0,17.0,2,2,U TOKU
 Bosanska Krupa,Drenova Glavica,Bosanska Krupa|DRENOVA GLAVICA,2,17.0,0.0,17.0,0,2,NIJE POČETO
 Bosanska Krupa,Zalug,Bosanska Krupa|ZALUG,2,17.0,0.0,17.0,0,2,NIJE POČETO
-Jezerski,Jezerski,Jezerski|JEZERSKI,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Jezerski,Jezerski Bb Kanurići,Jezerski|JEZERSKI,1,10.0,0.0,10.0,0,1,NIJE POČETO
 Bosanska Krupa,101 Muslimanska,Bosanska Krupa|101 MUSLIMANSKA,1,7.0,0.0,7.0,0,1,NIJE POČETO
 Bosanska Krupa,Dana Nezavisnosti,Bosanska Krupa|DANA NEZAVISNOSTI,1,7.0,0.0,7.0,0,1,NIJE POČETO
 Bosanska Krupa,Gazijska,Bosanska Krupa|GAZIJSKA,3,21.0,14.0,7.0,2,1,U TOKU
@@ -10,7 +10,7 @@ Bosanska Krupa,Ostružnica,Bosanska Krupa|OSTRUZNICA,2,14.0,7.0,7.0,1,1,U TOKU
 Bosanska Krupa,Prvomajska,Bosanska Krupa|PRVOMAJSKA,1,7.0,0.0,7.0,0,1,NIJE POČETO
 Bosanska Krupa,Ulica Terzić,Bosanska Krupa|TERZIC,1,7.0,0.0,7.0,0,1,NIJE POČETO
 Bosanska Krupa,Zahum,Bosanska Krupa|ZAHUM,1,7.0,0.0,7.0,0,1,NIJE POČETO
-Bosanska Otoka,(bez ulice),Bosanska Otoka|NAN,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Otoka,(bez ulice),Bosanska Otoka|(BEZ ULICE),1,7.0,0.0,7.0,0,1,NIJE POČETO
 Bosanska Otoka,Manda,Bosanska Otoka|MANDA,1,7.0,0.0,7.0,0,1,NIJE POČETO
 Bosanska Otoka,Varmazi,Bosanska Otoka|VARMAZI,1,7.0,0.0,7.0,0,1,NIJE POČETO
 Bosanska Otoka,Željeznička,Bosanska Otoka|ZELJEZNICKA,1,7.0,0.0,7.0,0,1,NIJE POČETO

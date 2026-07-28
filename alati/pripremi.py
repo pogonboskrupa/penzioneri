@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Čisti oba .xls spiska i priprema tabele za Google Sheets.
+"""Čisti sve spiskove i priprema tabele za Google Sheets.
 
-VAŽNO: dvije vrste ogrjeva se vode ODVOJENO
-    CIJEPANO  - podaci/DRVA_PENZ_2025.xls        (KOL u prostornim metrima)
-    U DUGOM   - podaci/PENZ_BOS_KRUPA_U_DUGOM.xls (KOL već u m3)
+VAŽNO: svaka grupa korisnika (spisak) se vodi ODVOJENO - ima svoj odobreni
+fond kubika, svoj list PODACI_* i ULICE_*:
+
+    CIJEPANO         podaci/DRVA_PENZ_2025.xls            (KOL u prostornim metrima)
+    U DUGOM          podaci/PENZ_BOS_KRUPA_U_DUGOM.xls    (KOL već u m3)
+    RVI              podaci/RVI_BOSANSKA_KRUPA_2026.xls   (kolona "količina" = odobreno)
+    PORODICE ŠEHIDA  podaci/PORODICE_SEHIDA_2025.xls      (KOL već u m3)
+    SINDIKAT         podaci/SINDIKAT.csv                  (ručno pripremljen iz .doc)
 
 Pokretanje:
     python3 alati/pripremi.py
 
 Rezultat (folder izlaz/):
-    PENZIONERI_DRVA.xlsx  - listovi PODACI_CIJEPANO, PODACI_U_DUGOM,
-                            ULICE_CIJEPANO, ULICE_U_DUGOM, MJESTA, ULICE_GEO
+    PENZIONERI_DRVA.xlsx  - PODACI_<grupa>, ULICE_<grupa> za svaku grupu,
+                            plus MJESTA i ULICE_GEO (zajednički, za kartu)
     *.csv                 - isti listovi za uvoz u Google Sheets
 """
 import os
@@ -32,18 +37,26 @@ from normalizacija import (  # noqa: E402
 
 KORIJEN = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-VRSTE = [
-    # (vrsta, fajl, KOL je već u m3?)
-    ("CIJEPANO", "podaci/DRVA_PENZ_2025.xls", False),
-    ("U DUGOM", "podaci/PENZ_BOS_KRUPA_U_DUGOM.xls", True),
+# "kod" = ASCII sufiks za nazive listova/kolona (bez razmaka i dijakritike);
+# "naziv" = čitljiv naziv koji ide u kolonu Vrsta i u izbore na stranici;
+# "nacin": prm (KOL u prostornim metrima) | m3 (KOL već u m3) |
+#          rvi (kolona "količina" = odobreno, bez posebne KOL kolone) |
+#          sindikat (poseban CSV, vidi napravi_sindikat_csv.py)
+IZVORI = [
+    {"kod": "CIJEPANO", "naziv": "CIJEPANO", "nacin": "prm",
+     "putanja": "podaci/DRVA_PENZ_2025.xls", "kategorija": "PENZIONER"},
+    {"kod": "U_DUGOM", "naziv": "U DUGOM", "nacin": "m3",
+     "putanja": "podaci/PENZ_BOS_KRUPA_U_DUGOM.xls", "kategorija": "PENZIONER"},
+    {"kod": "RVI", "naziv": "RVI", "nacin": "rvi",
+     "putanja": "podaci/RVI_BOSANSKA_KRUPA_2026.xls", "kategorija": "RVI"},
+    {"kod": "PORODICE_SEHIDA", "naziv": "PORODICE ŠEHIDA", "nacin": "m3",
+     "putanja": "podaci/PORODICE_SEHIDA_2025.xls", "kategorija": "PORODICA ŠEHIDA"},
+    {"kod": "SINDIKAT", "naziv": "SINDIKAT", "nacin": "sindikat",
+     "putanja": "podaci/SINDIKAT.csv", "kategorija": "SINDIKAT"},
 ]
 
 KOLONE = ["rb", "maticni", "prezime", "ime", "mjesto", "ulica", "telefon",
           "kol", "datum", "otpremnica", "kolicina", "oznaka"]
-
-# Kategorija korisnika; u izvornim spiskovima nije zapisana, pa svi kreću kao
-# PENZIONER, a u Google Sheetsu se po potrebi mijenja u RVI ili SINDIKAT.
-PODRAZUMIJEVANA_KATEGORIJA = "PENZIONER"
 
 REDOSLIJED = ["Vrsta", "Redni broj", "Matični broj", "Prezime", "Ime", "Kategorija",
               "Mjesto",
@@ -52,8 +65,38 @@ REDOSLIJED = ["Vrsta", "Redni broj", "Matični broj", "Prezime", "Ime", "Kategor
               "Adresa ključ", "Original mjesto", "Original ulica"]
 
 
-def ucitaj(vrsta, putanja, u_m3):
-    sirovo = pd.read_excel(os.path.join(KORIJEN, putanja),
+def _red(vrsta, kategorija, rb, maticni, prezime, ime, mjesto_sirovo, ulica_sirovo,
+         telefon, odobreno, isporuceno, datum, otpremnica, napomena):
+    odobreno = round(odobreno or 0.0, 2)
+    isporuceno = round(isporuceno or 0.0, 2)
+    preostalo = max(round(odobreno - isporuceno, 2), 0.0)
+    return {
+        "Vrsta": vrsta,
+        "Redni broj": rb,
+        "Matični broj": maticni,
+        "Prezime": prezime,
+        "Ime": ime,
+        "Kategorija": kategorija,
+        "Mjesto": normalizuj_mjesto(mjesto_sirovo) if mjesto_sirovo else "Bosanska Krupa",
+        "_ulica_kljuc": normalizuj_ulicu(ulica_sirovo) or "(BEZ ULICE)",
+        "_ulica_original": str(ulica_sirovo).strip() if ulica_sirovo else "",
+        "Telefon": telefon or "",
+        "Odobreno m3": odobreno,
+        "Isporučeno m3": isporuceno,
+        "Preostalo m3": preostalo,
+        "Status": ("ISPORUČENO" if preostalo <= 0.001 and isporuceno > 0
+                   else "DJELIMIČNO" if isporuceno > 0 else "ZA ISPORUKU"),
+        "Datum isporuke": datum or "",
+        "Otpremnica": otpremnica or "",
+        "Napomena": napomena or "",
+        "Original mjesto": str(mjesto_sirovo).strip() if mjesto_sirovo else "",
+        "Original ulica": str(ulica_sirovo).strip() if ulica_sirovo else "",
+    }
+
+
+def ucitaj_xls(izvor):
+    """CIJEPANO / U DUGOM / PORODICE ŠEHIDA (nacin prm ili m3) i RVI (nacin rvi)."""
+    sirovo = pd.read_excel(os.path.join(KORIJEN, izvor["putanja"]),
                            sheet_name="Naknadni spisak", header=None)
     d = sirovo.iloc[2:, :12].copy()
     d.columns = KOLONE
@@ -64,38 +107,57 @@ def ucitaj(vrsta, putanja, u_m3):
         ime = str(r.ime).strip() if pd.notna(r.ime) else ""
         if not prezime and not ime:
             continue
-        odobreno = kolicina_u_m3(r.kol, u_m3) or 0.0
-        isporuceno = broj(r.kolicina)
         datum = str(r.datum).strip() if pd.notna(r.datum) else ""
         otpremnica = str(r.otpremnica).strip() if pd.notna(r.otpremnica) else ""
-        if isporuceno is None and (datum or otpremnica):
-            isporuceno = odobreno  # otpremnica postoji, količina nije upisana
-        isporuceno = isporuceno or 0.0
-        preostalo = max(round(odobreno - isporuceno, 2), 0.0)
-        redovi.append({
-            "Vrsta": vrsta,
-            "Redni broj": str(r.rb).strip().replace(".0", "") if pd.notna(r.rb) else "",
-            "Matični broj": str(r.maticni).strip().replace(".0", "")
-            if pd.notna(r.maticni) else "",
-            "Prezime": prezime,
-            "Ime": ime,
-            "Kategorija": PODRAZUMIJEVANA_KATEGORIJA,
-            "Mjesto": normalizuj_mjesto(r.mjesto),
-            "_ulica_kljuc": normalizuj_ulicu(r.ulica) or "(BEZ ULICE)",
-            "_ulica_original": str(r.ulica).strip() if pd.notna(r.ulica) else "",
-            "Telefon": str(r.telefon).strip() if pd.notna(r.telefon) else "",
-            "Odobreno m3": odobreno,
-            "Isporučeno m3": isporuceno,
-            "Preostalo m3": preostalo,
-            "Status": ("ISPORUČENO" if preostalo <= 0.001 and isporuceno > 0
-                       else "DJELIMIČNO" if isporuceno > 0 else "ZA ISPORUKU"),
-            "Datum isporuke": datum,
-            "Otpremnica": otpremnica,
-            "Napomena": str(r.oznaka).strip() if pd.notna(r.oznaka) else "",
-            "Original mjesto": str(r.mjesto).strip() if pd.notna(r.mjesto) else "",
-            "Original ulica": str(r.ulica).strip() if pd.notna(r.ulica) else "",
-        })
+
+        if izvor["nacin"] == "rvi":
+            # nema posebne "odobreno" kolone - "količina" nosi odobreni iznos,
+            # a isporuka se prepoznaje po datumu/otpremnici (isti iznos)
+            odobreno = broj(r.kolicina) or 0.0
+            isporuceno = odobreno if (datum or otpremnica) else 0.0
+        else:
+            odobreno = kolicina_u_m3(r.kol, izvor["nacin"] == "m3") or 0.0
+            isporuceno = broj(r.kolicina)
+            if isporuceno is None and (datum or otpremnica):
+                isporuceno = odobreno
+            isporuceno = isporuceno or 0.0
+
+        redovi.append(_red(
+            izvor["naziv"], izvor["kategorija"],
+            str(r.rb).strip().replace(".0", "") if pd.notna(r.rb) else "",
+            str(r.maticni).strip().replace(".0", "") if pd.notna(r.maticni) else "",
+            prezime, ime, r.mjesto if pd.notna(r.mjesto) else "",
+            r.ulica if pd.notna(r.ulica) else "",
+            str(r.telefon).strip() if pd.notna(r.telefon) else "",
+            odobreno, isporuceno, datum, otpremnica,
+            str(r.oznaka).strip() if pd.notna(r.oznaka) else ""))
     return pd.DataFrame(redovi)
+
+
+def ucitaj_sindikat(izvor):
+    """SINDIKAT - ručno pripremljen CSV (vidi napravi_sindikat_csv.py)."""
+    d = pd.read_csv(os.path.join(KORIJEN, izvor["putanja"]))
+    redovi = []
+    for _, r in d.iterrows():
+        ime_puno = str(r.prezime_ime).strip()
+        dijelovi = ime_puno.split(" ", 1)
+        prezime = dijelovi[0] if dijelovi else ime_puno
+        ime = dijelovi[1] if len(dijelovi) > 1 else ""
+        redovi.append(_red(
+            izvor["naziv"], izvor["kategorija"], str(r.rb), "",
+            prezime, ime, r.mjesto, "",
+            str(r.telefon).strip() if pd.notna(r.telefon) else "",
+            r.odobreno_m3, r.isporuceno_m3,
+            str(r.datum).strip() if pd.notna(r.datum) else "",
+            str(r.otpremnica).strip() if pd.notna(r.otpremnica) else "",
+            str(r.napomena).strip() if pd.notna(r.napomena) else ""))
+    return pd.DataFrame(redovi)
+
+
+def ucitaj(izvor):
+    if izvor["nacin"] == "sindikat":
+        return ucitaj_sindikat(izvor)
+    return ucitaj_xls(izvor)
 
 
 def ujednaci_ulice(podaci):
@@ -168,7 +230,7 @@ def oboji_listove(writer, listovi):
 
 
 def main():
-    dijelovi = {v: ucitaj(v, p, m) for v, p, m in VRSTE}
+    dijelovi = {izvor["naziv"]: ucitaj(izvor) for izvor in IZVORI}
     sve = pd.concat(dijelovi.values(), ignore_index=True)
     sve = ujednaci_ulice(sve)
     sve = sve.sort_values(["Vrsta", "Mjesto", "Ulica", "Prezime", "Ime"],
@@ -187,17 +249,19 @@ def main():
     for k in ("Odobreno m3", "Isporučeno m3", "Preostalo m3"):
         mjesta[k] = mjesta[k].round(2)
 
-    # jedan red po ulici (obje vrste zajedno) - osnova za kartu
+    # jedan red po ulici (sve grupe zajedno) - osnova za kartu
     geo = (sve.groupby(["Mjesto", "Ulica", "Adresa ključ"], as_index=False)
            .size().drop(columns="size"))
-    for v in dijelovi:
+    kolone_preostalo = []
+    for izvor in IZVORI:
+        v = izvor["naziv"]
         s = ulice[v].set_index("Adresa ključ")
-        geo[f"Preostalo {v} m3"] = [float(s["Preostalo m3"].get(k, 0.0))
-                                    for k in geo["Adresa ključ"]]
+        kolona = f"Preostalo {v} m3"
+        geo[kolona] = [float(s["Preostalo m3"].get(k, 0.0)) for k in geo["Adresa ključ"]]
         geo[f"Isporučeno {v} m3"] = [float(s["Isporučeno m3"].get(k, 0.0))
                                      for k in geo["Adresa ključ"]]
-    geo["Preostalo ukupno m3"] = (geo["Preostalo CIJEPANO m3"] +
-                                  geo["Preostalo U DUGOM m3"]).round(2)
+        kolone_preostalo.append(kolona)
+    geo["Preostalo ukupno m3"] = geo[kolone_preostalo].sum(axis=1).round(2)
     geo["Adresa za kartu"] = [
         (f"{u}, {m}, Bosna i Hercegovina" if u != "(bez ulice)"
          else f"{m}, Bosna i Hercegovina")
@@ -208,14 +272,13 @@ def main():
 
     izlaz = os.path.join(KORIJEN, "izlaz")
     os.makedirs(izlaz, exist_ok=True)
-    listovi = {
-        "PODACI_CIJEPANO": po_vrsti["CIJEPANO"],
-        "PODACI_U_DUGOM": po_vrsti["U DUGOM"],
-        "ULICE_CIJEPANO": ulice["CIJEPANO"],
-        "ULICE_U_DUGOM": ulice["U DUGOM"],
-        "MJESTA": mjesta,
-        "ULICE_GEO": geo,
-    }
+    listovi = {}
+    for izvor in IZVORI:
+        listovi[f"PODACI_{izvor['kod']}"] = po_vrsti[izvor["naziv"]]
+        listovi[f"ULICE_{izvor['kod']}"] = ulice[izvor["naziv"]]
+    listovi["MJESTA"] = mjesta
+    listovi["ULICE_GEO"] = geo
+
     with pd.ExcelWriter(os.path.join(izlaz, "PENZIONERI_DRVA.xlsx"),
                         engine="openpyxl") as w:
         for naziv, df in listovi.items():
@@ -224,8 +287,9 @@ def main():
     for naziv, df in listovi.items():
         df.to_csv(os.path.join(izlaz, f"{naziv}.csv"), index=False)
 
-    for v, d in po_vrsti.items():
-        print(f"[{v}] korisnika {len(d)}, ulica {len(ulice[v])}, "
+    for izvor in IZVORI:
+        d = po_vrsti[izvor["naziv"]]
+        print(f"[{izvor['naziv']}] korisnika {len(d)}, ulica {len(ulice[izvor['naziv']])}, "
               f"odobreno {d['Odobreno m3'].sum():.2f} m3, "
               f"isporučeno {d['Isporučeno m3'].sum():.2f} m3, "
               f"preostalo {d['Preostalo m3'].sum():.2f} m3")

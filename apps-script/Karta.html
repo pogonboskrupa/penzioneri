@@ -51,10 +51,8 @@
 <body>
 <div style="display:flex;flex-direction:column;height:100%">
   <div class="alatna">
-    <strong>Vrsta ogrjeva:</strong>
-    <label><input type="radio" name="vrsta" value="SVE" checked> Obje</label>
-    <label><input type="radio" name="vrsta" value="CIJEPANO"> Cijepano</label>
-    <label><input type="radio" name="vrsta" value="U DUGOM"> U dugom</label>
+    <strong>Grupa:</strong>
+    <span id="izborVrste"><label><input type="radio" name="vrsta" value="SVE" checked> Sve</label></span>
     <label style="margin-left:12px"><input type="checkbox" id="samoPreostalo"> Prikaži samo ulice gdje je ostalo</label>
     <span class="zbir" id="zbir"></span>
   </div>
@@ -95,7 +93,22 @@ function ucitajSve() {
     document.getElementById('spisak').textContent = 'Greška: ' + e.message;
   }).podaciZaKartu();
 }
-ucitajSve();
+
+/** Radio dugmad za svaku grupu (VRSTE) grade se iz servera - ne kucaju se ovdje. */
+function pripremiIzborVrste(nastavak) {
+  google.script.run.withSuccessHandler(function (nazivi) {
+    var el = document.getElementById('izborVrste');
+    el.innerHTML = '<label><input type="radio" name="vrsta" value="SVE" checked> Sve</label>' +
+      nazivi.map(function (n) {
+        return '<label><input type="radio" name="vrsta" value="' + n.replace(/"/g, '&quot;') +
+          '"> ' + n.charAt(0) + n.slice(1).toLowerCase() + '</label>';
+      }).join('');
+    document.querySelectorAll('input[name=vrsta]').forEach(function (r) { r.onchange = crtaj; });
+    nastavak();
+  }).withFailureHandler(nastavak).spisakVrsta();
+}
+
+pripremiIzborVrste(ucitajSve);
 
 /** Spisak ulica bez (ili s pogrešnom) lokacijom - klik na dugme pa na kartu. */
 function crtajNesvrstano() {
@@ -186,7 +199,10 @@ function boja(z) {
 }
 
 function kratkaKategorija(k) {
-  return k === 'PENZIONER' ? 'penz.' : k === 'SINDIKAT' ? 'sind.' : (k || '').toLowerCase();
+  if (k === 'PENZIONER') return 'penz.';
+  if (k === 'SINDIKAT') return 'sind.';
+  if (k === 'PORODICA ŠEHIDA') return 'por. šehida';
+  return (k || '').toLowerCase();
 }
 
 function oznakaTacnosti(tacka) {
@@ -348,9 +364,6 @@ function prikaziDetalje(tacka, z) {
   };
 }
 
-document.querySelectorAll('input[name=vrsta]').forEach(function (el) {
-  el.onchange = crtaj;
-});
 document.getElementById('samoPreostalo').onchange = crtaj;
 </script>
 </body>

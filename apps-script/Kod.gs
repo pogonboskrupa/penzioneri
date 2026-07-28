@@ -1,15 +1,17 @@
 /**
  * Udruženje penzionera Bosanska Krupa - praćenje isporuke ogrjeva.
  *
- * Dvije vrste ogrjeva vode se ODVOJENO:
- *   CIJEPANO  -> listovi PODACI_CIJEPANO i ULICE_CIJEPANO
- *   U DUGOM   -> listovi PODACI_U_DUGOM  i ULICE_U_DUGOM
- * Zajednički su samo MJESTA (zbirni pregled) i ULICE_GEO (koordinate za kartu).
+ * Svaka grupa korisnika se vodi ODVOJENO - svoj odobreni fond kubika,
+ * svoj list PODACI_* i ULICE_* (vidi VRSTE ispod). Zajednički su samo
+ * MJESTA (zbirni pregled po grupi) i ULICE_GEO (koordinate za kartu).
  */
 
 var VRSTE = [
   { naziv: 'CIJEPANO', podaci: 'PODACI_CIJEPANO', ulice: 'ULICE_CIJEPANO' },
-  { naziv: 'U DUGOM', podaci: 'PODACI_U_DUGOM', ulice: 'ULICE_U_DUGOM' }
+  { naziv: 'U DUGOM', podaci: 'PODACI_U_DUGOM', ulice: 'ULICE_U_DUGOM' },
+  { naziv: 'RVI', podaci: 'PODACI_RVI', ulice: 'ULICE_RVI' },
+  { naziv: 'PORODICE ŠEHIDA', podaci: 'PODACI_PORODICE_SEHIDA', ulice: 'ULICE_PORODICE_SEHIDA' },
+  { naziv: 'SINDIKAT', podaci: 'PODACI_SINDIKAT', ulice: 'ULICE_SINDIKAT' }
 ];
 var LIST_MJESTA = 'MJESTA';
 var LIST_GEO = 'ULICE_GEO';
@@ -220,28 +222,36 @@ function ucitajKoordinate_() {
 }
 
 function osvjeziGeo_(poVrsti, sveUlice, koordinate) {
+  var zaglavlje = ['Mjesto', 'Ulica', 'Adresa ključ'];
+  VRSTE.forEach(function (vrsta) {
+    zaglavlje.push('Preostalo ' + vrsta.naziv + ' m3', 'Isporučeno ' + vrsta.naziv + ' m3');
+  });
+  zaglavlje.push('Preostalo ukupno m3', 'Adresa za kartu', 'Lat', 'Lng', 'Tačnost',
+    'Podudaranje sa');
+  var kolonaTacnosti = zaglavlje.indexOf('Tačnost') + 1;
+
   var redovi = Object.keys(sveUlice).map(function (k) {
     var u = sveUlice[k];
-    var c = poVrsti['CIJEPANO'][k] || { preostalo: 0, isporuceno: 0, korisnika: 0 };
-    var d = poVrsti['U DUGOM'][k] || { preostalo: 0, isporuceno: 0, korisnika: 0 };
     var xy = koordinate[k] || { lat: '', lng: '', tacnost: '', podudaranje: '' };
     var adresa = u.ulica && u.ulica !== '(bez ulice)'
       ? u.ulica + ', ' + u.mjesto + ', Bosna i Hercegovina'
       : u.mjesto + ', Bosna i Hercegovina';
-    return [u.mjesto, u.ulica, k,
-      okrugli_(c.preostalo), okrugli_(c.isporuceno),
-      okrugli_(d.preostalo), okrugli_(d.isporuceno),
-      okrugli_(c.preostalo + d.preostalo), adresa, xy.lat, xy.lng, xy.tacnost,
-      xy.podudaranje];
-  }).sort(function (a, b) { return b[7] - a[7]; });
+    var red = [u.mjesto, u.ulica, k];
+    var ukupnoPreostalo = 0;
+    VRSTE.forEach(function (vrsta) {
+      var z = poVrsti[vrsta.naziv][k] || { preostalo: 0, isporuceno: 0, korisnika: 0 };
+      red.push(okrugli_(z.preostalo), okrugli_(z.isporuceno));
+      ukupnoPreostalo += z.preostalo;
+    });
+    red.push(okrugli_(ukupnoPreostalo), adresa, xy.lat, xy.lng, xy.tacnost, xy.podudaranje);
+    return red;
+  }).sort(function (a, b) {
+    return b[zaglavlje.indexOf('Preostalo ukupno m3')] - a[zaglavlje.indexOf('Preostalo ukupno m3')];
+  });
 
-  var s = upisi_(LIST_GEO, ['Mjesto', 'Ulica', 'Adresa ključ',
-    'Preostalo CIJEPANO m3', 'Isporučeno CIJEPANO m3',
-    'Preostalo U DUGOM m3', 'Isporučeno U DUGOM m3',
-    'Preostalo ukupno m3', 'Adresa za kartu', 'Lat', 'Lng', 'Tačnost',
-    'Podudaranje sa'], redovi);
+  var s = upisi_(LIST_GEO, zaglavlje, redovi);
   if (redovi.length) {
-    var opseg = s.getRange(2, 12, redovi.length, 1);
+    var opseg = s.getRange(2, kolonaTacnosti, redovi.length, 1);
     opseg.setBackgrounds(opseg.getValues().map(function (r) {
       return [r[0] === 'ulica' ? '#d9ead3' : r[0] === 'naselje' ? '#fff2cc'
         : r[0] === 'ručno' ? '#cfe2f3' : r[0] === 'slično' ? '#d0e0fb'
@@ -464,6 +474,11 @@ function javniSpremiRucnuKoordinatu(kljucAdrese, lat, lng, lozinka) {
 
 /* ------------------------------------------------------------------ 3. karta */
 
+/** Nazivi svih grupa (VRSTE) - Karta.html gradi izbor dinamički iz ovoga. */
+function spisakVrsta() {
+  return VRSTE.map(function (v) { return v.naziv; });
+}
+
 function otvoriKartu() {
   var html = HtmlService.createHtmlOutputFromFile('Karta')
     .setWidth(1200).setHeight(800);
@@ -592,6 +607,7 @@ function javniPodaci(prikaziTelefone) {
   }
 
   return {
+    vrste: VRSTE.map(function (v) { return v.naziv; }),
     zbir: zbir,
     tacke: karta.tacke,
     bezKoordinata: karta.bezKoordinata,
@@ -602,12 +618,20 @@ function javniPodaci(prikaziTelefone) {
 
 /* ------------------------------------------------- upis isporuke iz tabele */
 
+function nazivListaZaVrstu_(nazivLista) {
+  var vrsta = null;
+  VRSTE.forEach(function (v) { if (v.podaci === nazivLista) vrsta = v.naziv; });
+  return vrsta;
+}
+
 function upisiIsporuku() {
   var ui = SpreadsheetApp.getUi();
   var list = SpreadsheetApp.getActiveSheet();
   var naziv = list.getName();
-  if (naziv !== 'PODACI_CIJEPANO' && naziv !== 'PODACI_U_DUGOM') {
-    ui.alert('Označite red na listu PODACI_CIJEPANO ili PODACI_U_DUGOM.');
+  var vrstaNaziv = nazivListaZaVrstu_(naziv);
+  if (!vrstaNaziv) {
+    ui.alert('Označite red na jednom od listova: ' +
+      VRSTE.map(function (v) { return v.podaci; }).join(', ') + '.');
     return;
   }
   var red = list.getActiveRange().getRow();
@@ -644,7 +668,7 @@ function upisiIsporuku() {
   }
 
   zapisiIsporuku_({
-    vrsta: naziv === 'PODACI_CIJEPANO' ? 'CIJEPANO' : 'U DUGOM',
+    vrsta: vrstaNaziv,
     maticni: podaci[t.i['Matični broj']],
     prezime: podaci[t.i['Prezime']],
     ime: podaci[t.i['Ime']],
@@ -844,18 +868,35 @@ function osvjeziPregled_() {
     okrugli_(ukupno.odobreno), okrugli_(ukupno.isporuceno), okrugli_(ukupno.preostalo)]])
     .setFontWeight('bold');
 
-  var mjesta = SpreadsheetApp.getActive().getSheetByName(LIST_MJESTA);
-  if (mjesta && mjesta.getLastRow() > 1) {
-    var grafikon = s.newChart().setChartType(Charts.ChartType.COLUMN)
-      .addRange(mjesta.getRange(1, 2, mjesta.getLastRow(), 1))              // Mjesto
-      .addRange(mjesta.getRange(1, 6, mjesta.getLastRow(), 2))              // Isporučeno, Preostalo
-      .setPosition(4, 7, 0, 0)
-      .setOption('title', 'Isporučeno i preostalo po mjestu (m³)')
-      .setOption('width', 620).setOption('height', 340)
-      .setOption('colors', ['#188038', '#d93025'])
-      .setOption('isStacked', true)
-      .build();
-    s.insertChart(grafikon);
+  // zbir po mjestu (preko svih grupa) - MJESTA ima po jedan red za svaku
+  // grupu, pa se prvo sabere po mjestu u pomoćnu tabelu za grafikon
+  if (SpreadsheetApp.getActive().getSheetByName(LIST_MJESTA)) {
+    var tm = citaj_(LIST_MJESTA);
+    var poMjestu = {}, redoslijedMjesta = [];
+    tm.redovi.forEach(function (r) {
+      var m = String(r[tm.i['Mjesto']]);
+      if (!poMjestu[m]) { poMjestu[m] = { isporuceno: 0, preostalo: 0 }; redoslijedMjesta.push(m); }
+      poMjestu[m].isporuceno += broj_(r[tm.i['Isporučeno m3']]);
+      poMjestu[m].preostalo += broj_(r[tm.i['Preostalo m3']]);
+    });
+    var pomocnaKolona = 11;  // K - van vidokruga tabele iznad
+    s.getRange(1, pomocnaKolona, 1, 3).setValues([['Mjesto', 'Isporučeno m³', 'Preostalo m³']]);
+    redoslijedMjesta.sort(function (a, b) { return poMjestu[b].preostalo - poMjestu[a].preostalo; });
+    redoslijedMjesta.forEach(function (m, i) {
+      s.getRange(2 + i, pomocnaKolona, 1, 3).setValues(
+        [[m, okrugli_(poMjestu[m].isporuceno), okrugli_(poMjestu[m].preostalo)]]);
+    });
+    if (redoslijedMjesta.length) {
+      var grafikon = s.newChart().setChartType(Charts.ChartType.COLUMN)
+        .addRange(s.getRange(1, pomocnaKolona, redoslijedMjesta.length + 1, 3))
+        .setPosition(4, 7, 0, 0)
+        .setOption('title', 'Isporučeno i preostalo po mjestu (m³, sve grupe zajedno)')
+        .setOption('width', 620).setOption('height', 340)
+        .setOption('colors', ['#188038', '#d93025'])
+        .setOption('isStacked', true)
+        .build();
+      s.insertChart(grafikon);
+    }
   }
   s.setColumnWidth(1, 190);
   s.setColumnWidth(2, 190);
@@ -896,7 +937,7 @@ function iskljuciOkidace_() {
 
 /* ----------------------------------------------------------- kategorije */
 
-var KATEGORIJE = ['PENZIONER', 'RVI', 'SINDIKAT', 'OSTALO'];
+var KATEGORIJE = ['PENZIONER', 'RVI', 'PORODICA ŠEHIDA', 'SINDIKAT', 'OSTALO'];
 
 /** Padajući izbor u koloni "Kategorija" na oba lista s podacima. */
 function postaviKategorije() {

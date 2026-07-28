@@ -3,15 +3,38 @@
 Sve radi u **Google Sheetsu**: unos isporuke, zbir po ulicama i mjestima, te
 **karta** na kojoj se vidi gdje je još ostalo za otpremiti i kome je već isporučeno.
 
-**Dvije vrste ogrjeva vode se odvojeno:**
+**Pet grupa korisnika vodi se odvojeno** - svaka ima svoj odobreni fond
+kubika i svoj par listova:
 
-| Vrsta | Izvorni fajl | Listovi |
+| Grupa | Izvorni fajl | Listovi |
 |---|---|---|
-| **CIJEPANO** | `DRVA_PENZ_2025.xls` | `PODACI_CIJEPANO`, `ULICE_CIJEPANO` |
-| **U DUGOM** | `PENZ_BOS_KRUPA_U_DUGOM.xls` | `PODACI_U_DUGOM`, `ULICE_U_DUGOM` |
+| **CIJEPANO** (penzioneri) | `DRVA_PENZ_2025.xls` | `PODACI_CIJEPANO`, `ULICE_CIJEPANO` |
+| **U DUGOM** (penzioneri) | `PENZ_BOS_KRUPA_U_DUGOM.xls` | `PODACI_U_DUGOM`, `ULICE_U_DUGOM` |
+| **RVI** | `RVI_BOSANSKA_KRUPA_2026.xls` | `PODACI_RVI`, `ULICE_RVI` |
+| **PORODICE ŠEHIDA** | `PORODICE_SEHIDA_2025.xls` | `PODACI_PORODICE_SEHIDA`, `ULICE_PORODICE_SEHIDA` |
+| **SINDIKAT** | `SINDIKAT.csv` (ručno pripremljen iz `.doc`, vidi napomenu ispod) | `PODACI_SINDIKAT`, `ULICE_SINDIKAT` |
 
-Zajednički su samo `MJESTA` (zbirni pregled po vrstama) i `ULICE_GEO`
-(koordinate ulica za kartu).
+Zajednički su samo `MJESTA` (zbirni pregled po grupi) i `ULICE_GEO`
+(koordinate ulica za kartu, sad sa po dvije kolone preostalo/isporučeno za
+svaku od pet grupa). Karta, javna stranica i meni se sami prilagode broju
+grupa - izbor "Grupa" na vrhu se gradi iz podataka, ne treba ga ručno mijenjati
+ako se doda još jedna grupa u budućnosti (samo dodaj novi izvor u `IZVORI` u
+`alati/pripremi.py` i novi unos u `VRSTE` u `apps-script/Kod.gs`).
+
+**Napomene o novim spiskovima:**
+
+- **RVI**: originalni `.xls` nema posebnu kolonu za odobrenu količinu -
+  kolona "količina" nosi taj iznos, a isporuka se prepoznaje po datumu i
+  broju otpremnice (kad postoje, isporučeno = odobreno).
+- **SINDIKAT**: izvorni fajl je bio `.doc` (Word) koji se u ovom okruženju
+  nije mogao automatski i pouzdano parsirati (tabela u Wordu je nepravilno
+  formatirana). Podaci su ručno prepisani u `podaci/SINDIKAT.csv`
+  (`alati/napravi_sindikat_csv.py`) uz provjeru svakog reda. Jedan red iz
+  dokumenta (r.b. 20 u trećoj cjelini) je oštećen i nije uključen - vrijedi
+  provjeriti original ako ti zatreba. Dokument nema adrese, pa svi korisnici
+  iz Sindikata trenutno padaju na jednu tačku "(bez ulice), Bosanska Krupa"
+  na karti - ako naknadno dobiješ adrese, dodaj kolonu Ulica u `PODACI_SINDIKAT`
+  i osvježi sažetke, ili odmah u CSV pa ponovo pokreni `pripremi.py`.
 
 ---
 
@@ -44,8 +67,8 @@ Trenutno stanje:
 
 1. **Napravi tabelu**: Google Drive → *Novo → Google tabele → Uvezi* →
    učitaj `izlaz/PENZIONERI_DRVA.xlsx` (opcija *Zamijeni tabelu*).
-   Dobiješ listove `PODACI_CIJEPANO`, `PODACI_U_DUGOM`, `ULICE_CIJEPANO`,
-   `ULICE_U_DUGOM`, `MJESTA`, `ULICE_GEO`.
+   Dobiješ listove `PODACI_*`/`ULICE_*` za svih pet grupa (CIJEPANO, U DUGOM,
+   RVI, PORODICE_SEHIDA, SINDIKAT), plus `MJESTA` i `ULICE_GEO`.
 2. **Dodaj skriptu**: u tabeli → *Proširenja → Apps Script*.
    - u fajl `Code.gs` zalijepi sadržaj `apps-script/Kod.gs`;
    - *+ → HTML* → nazovi fajl **`Karta`** → zalijepi `apps-script/Karta.html`;
@@ -59,7 +82,7 @@ Trenutno stanje:
 ## 3. Svakodnevni rad
 
 ### Upis isporuke
-Na listu `PODACI_CIJEPANO` ili `PODACI_U_DUGOM` klikni na red penzionera →
+Na bilo kojem listu `PODACI_*` klikni na red korisnika →
 **🪵 Drva → Upiši isporuku za označeni red** → upiši m³ i broj otpremnice.
 Skripta sama upiše datum, novo stanje, status i osvježi sve zbirove.
 

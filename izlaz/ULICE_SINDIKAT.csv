@@ -1,0 +1,3 @@
+Mjesto,Ulica,Adresa ključ,Broj korisnika,Odobreno m3,Isporučeno m3,Preostalo m3,Isporučeno korisnika,Za isporuku korisnika,Status ulice
+Bosanska Krupa,(bez ulice),Bosanska Krupa|(BEZ ULICE),61,423.5,220.5,203.0,29,32,U TOKU
+Polje Cazin,(bez ulice),Polje Cazin|(BEZ ULICE),1,10.5,0.0,10.5,0,1,NIJE POČETO
