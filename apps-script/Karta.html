@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
+  #okvir { display: flex; height: 100%; }
+  #karta { flex: 1 1 auto; }
+  #bocna { width: 340px; overflow-y: auto; border-left: 1px solid #ddd; padding: 10px 12px; }
+  h3 { margin: 6px 0 8px; font-size: 15px; }
+  .alatna { padding: 8px 12px; border-bottom: 1px solid #ddd; background: #fafafa;
+            display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+  .alatna label { cursor: pointer; }
+  .zbir { font-size: 13px; color: #333; margin-left: auto; }
+  .stavka { border-bottom: 1px solid #eee; padding: 6px 0; font-size: 13px; cursor: pointer; }
+  .stavka:hover { background: #f5f5f5; }
+  .znak { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  .crveno { background: #d93025; } .zuto { background: #f9ab00; } .zeleno { background: #188038; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  td { padding: 2px 4px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  .gotov { color: #188038; } .ceka { color: #d93025; font-weight: bold; }
+  .upozorenje { background: #fff4e5; border: 1px solid #f9ab00; padding: 6px 8px;
+                font-size: 12px; margin-bottom: 8px; }
+  a.nav { font-size: 12px; }
+</style>
+</head>
+<body>
+<div style="display:flex;flex-direction:column;height:100%">
+  <div class="alatna">
+    <strong>Vrsta ogrjeva:</strong>
+    <label><input type="radio" name="vrsta" value="SVE" checked> Obje</label>
+    <label><input type="radio" name="vrsta" value="CIJEPANO"> Cijepano</label>
+    <label><input type="radio" name="vrsta" value="U DUGOM"> U dugom</label>
+    <label style="margin-left:12px"><input type="checkbox" id="samoPreostalo"> Prikaži samo ulice gdje je ostalo</label>
+    <span class="zbir" id="zbir"></span>
+  </div>
+  <div id="okvir">
+    <div id="karta"></div>
+    <div id="bocna">
+      <div id="upozorenje"></div>
+      <h3>Ulice (najviše preostalo prvo)</h3>
+      <div id="spisak">Učitavanje…</div>
+      <div id="detalji"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var karta = L.map('karta').setView([44.88, 16.15], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '© OpenStreetMap'
+}).addTo(karta);
+
+var sloj = L.layerGroup().addTo(karta);
+var SVE = [];
+
+google.script.run.withSuccessHandler(function (odgovor) {
+  SVE = odgovor.tacke || [];
+  if (odgovor.bezKoordinata && odgovor.bezKoordinata.length) {
+    document.getElementById('upozorenje').innerHTML =
+      '<div class="upozorenje">Bez koordinata (' + odgovor.bezKoordinata.length +
+      '): ' + odgovor.bezKoordinata.slice(0, 10).join(', ') +
+      '. Pokrenite "Geokodiraj ulice" ili upišite Lat/Lng ručno u list ULICE_GEO.</div>';
+  }
+  crtaj();
+}).withFailureHandler(function (e) {
+  document.getElementById('spisak').textContent = 'Greška: ' + e.message;
+}).podaciZaKartu();
+
+function odabranaVrsta() {
+  return document.querySelector('input[name=vrsta]:checked').value;
+}
+
+function zbirZa(tacka) {
+  var v = odabranaVrsta();
+  var preostalo = 0, isporuceno = 0, korisnici = [];
+  Object.keys(tacka.vrste || {}).forEach(function (naziv) {
+    if (v !== 'SVE' && v !== naziv) return;
+    var d = tacka.vrste[naziv];
+    preostalo += d.preostalo;
+    isporuceno += d.isporuceno;
+    d.korisnici.forEach(function (k) {
+      korisnici.push({ vrsta: naziv, k: k });
+    });
+  });
+  return {
+    preostalo: Math.round(preostalo * 100) / 100,
+    isporuceno: Math.round(isporuceno * 100) / 100,
+    korisnici: korisnici
+  };
+}
+
+function boja(z) {
+  if (z.preostalo <= 0.001) return '#188038';        // sve isporučeno
+  return z.isporuceno > 0.001 ? '#f9ab00' : '#d93025'; // u toku / nije počelo
+}
+
+function crtaj() {
+  sloj.clearLayers();
+  var samoPreostalo = document.getElementById('samoPreostalo').checked;
+  var redovi = [], ukupnoPreostalo = 0, ukupnoIsporuceno = 0;
+
+  SVE.forEach(function (tacka) {
+    var z = zbirZa(tacka);
+    if (!z.korisnici.length) return;
+    if (samoPreostalo && z.preostalo <= 0.001) return;
+    ukupnoPreostalo += z.preostalo;
+    ukupnoIsporuceno += z.isporuceno;
+
+    var marker = L.circleMarker([tacka.lat, tacka.lng], {
+      radius: Math.max(7, Math.min(26, 6 + Math.sqrt(z.preostalo) * 3)),
+      color: '#fff', weight: 2, fillColor: boja(z), fillOpacity: 0.85
+    }).addTo(sloj);
+    marker.bindTooltip(tacka.ulica + ' (' + tacka.mjesto + '): ostalo ' +
+      z.preostalo + ' m3', { direction: 'top' });
+    marker.on('click', function () { prikaziDetalje(tacka, z); });
+    redovi.push({ tacka: tacka, z: z, marker: marker });
+  });
+
+  redovi.sort(function (a, b) { return b.z.preostalo - a.z.preostalo; });
+  document.getElementById('zbir').textContent =
+    'Ostalo: ' + Math.round(ukupnoPreostalo * 10) / 10 + ' m3  |  isporučeno: ' +
+    Math.round(ukupnoIsporuceno * 10) / 10 + ' m3  |  ulica: ' + redovi.length;
+
+  var spisak = document.getElementById('spisak');
+  spisak.innerHTML = '';
+  redovi.forEach(function (r) {
+    var d = document.createElement('div');
+    d.className = 'stavka';
+    d.innerHTML = '<span class="znak" style="background:' + boja(r.z) + '"></span>' +
+      '<strong>' + r.tacka.ulica + '</strong> <span style="color:#666">' +
+      r.tacka.mjesto + '</span><br>ostalo <strong>' + r.z.preostalo +
+      ' m3</strong> · isporučeno ' + r.z.isporuceno + ' m3 · ' +
+      r.z.korisnici.length + ' korisnika';
+    d.onclick = function () {
+      karta.setView([r.tacka.lat, r.tacka.lng], 16);
+      r.marker.openTooltip();
+      prikaziDetalje(r.tacka, r.z);
+    };
+    spisak.appendChild(d);
+  });
+
+  if (redovi.length) {
+    karta.fitBounds(L.latLngBounds(redovi.map(function (r) {
+      return [r.tacka.lat, r.tacka.lng];
+    })).pad(0.15));
+  }
+}
+
+function prikaziDetalje(tacka, z) {
+  var html = '<h3>' + tacka.ulica + ', ' + tacka.mjesto + '</h3>' +
+    '<a class="nav" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' +
+    tacka.lat + ',' + tacka.lng + '">▸ Navigacija (Google Maps)</a><table>';
+  z.korisnici.sort(function (a, b) { return b.k.preostalo - a.k.preostalo; });
+  z.korisnici.forEach(function (r) {
+    var k = r.k;
+    var gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
+    html += '<tr><td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
+      (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime + '</strong><br>' +
+      '<span style="color:#666">' + r.vrsta + (k.telefon ? ' · ' + k.telefon : '') +
+      '</span></td><td>' + (gotov
+        ? 'isporučeno ' + k.isporuceno + ' m3' + (k.datum ? '<br>' + k.datum : '') +
+          (k.otpremnica ? '<br>otpr. ' + k.otpremnica : '')
+        : 'ostalo <strong>' + k.preostalo + ' m3</strong>' +
+          (k.isporuceno ? '<br>dio isporučen: ' + k.isporuceno + ' m3' : '')) +
+      '</td></tr>';
+  });
+  document.getElementById('detalji').innerHTML = html + '</table>';
+}
+
+document.querySelectorAll('input[name=vrsta]').forEach(function (el) {
+  el.onchange = crtaj;
+});
+document.getElementById('samoPreostalo').onchange = crtaj;
+</script>
+</body>
+</html>

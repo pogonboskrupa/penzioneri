@@ -1,0 +1,122 @@
+# Evidencija isporuke ogrjeva – Udruženje penzionera Bosanska Krupa
+
+Sve radi u **Google Sheetsu**: unos isporuke, zbir po ulicama i mjestima, te
+**karta** na kojoj se vidi gdje je još ostalo za otpremiti i kome je već isporučeno.
+
+**Dvije vrste ogrjeva vode se odvojeno:**
+
+| Vrsta | Izvorni fajl | Listovi |
+|---|---|---|
+| **CIJEPANO** | `DRVA_PENZ_2025.xls` | `PODACI_CIJEPANO`, `ULICE_CIJEPANO` |
+| **U DUGOM** | `PENZ_BOS_KRUPA_U_DUGOM.xls` | `PODACI_U_DUGOM`, `ULICE_U_DUGOM` |
+
+Zajednički su samo `MJESTA` (zbirni pregled po vrstama) i `ULICE_GEO`
+(koordinate ulica za kartu).
+
+---
+
+## 1. Šta je pripremljeno
+
+Fajl **`izlaz/PENZIONERI_DRVA.xlsx`** je očišćena verzija oba spiska:
+
+- **spojeni dupli nazivi mjesta** – `BOS.KRUPA`, `Bos.Krupa`, `Bos Krupa`,
+  `BOSANSKA KRUPA` → **Bosanska Krupa** (isto za Otoku, Jezerski, Pištaline…);
+- **spojeni dupli nazivi ulica**, ali **samo unutar istog mjesta** (kolona E),
+  jer ista ulica postoji u više mjesta – npr. *Unska* u Bosanskoj Krupi i
+  *Unska* u Bosanskoj Otoci ostaju **dvije različite stavke**;
+- skinuti kućni brojevi (`27. Juli br 7` → `27 Juli`) i razriješene skraćenice
+  (`ALEJA ZL. LJ` → `Aleja Zlatnih Ljiljana`, `101 MUSLIM` → `101 Muslimanska`);
+- **sve količine svedene na m³**: u spisku cijepanog KOL je bio u prostornim
+  metrima (5 prm = 3,5 m³; 10 prm = 7 m³), u spisku „u dugom“ je već bio m³;
+- izračunato **Isporučeno / Preostalo / Status** za svakog korisnika
+  (isporuka je prepoznata po upisanom datumu, otpremnici ili količini).
+
+Trenutno stanje:
+
+| Vrsta | Korisnika | Ulica | Odobreno | Isporučeno | Preostalo |
+|---|---|---|---|---|---|
+| CIJEPANO | 358 | 71 | 2030,0 m³ | 1113,5 m³ | **980,0 m³** |
+| U DUGOM | 45 | 28 | 341,0 m³ | 189,0 m³ | **152,0 m³** |
+
+---
+
+## 2. Postavljanje (jednom, ~10 minuta)
+
+1. **Napravi tabelu**: Google Drive → *Novo → Google tabele → Uvezi* →
+   učitaj `izlaz/PENZIONERI_DRVA.xlsx` (opcija *Zamijeni tabelu*).
+   Dobiješ listove `PODACI_CIJEPANO`, `PODACI_U_DUGOM`, `ULICE_CIJEPANO`,
+   `ULICE_U_DUGOM`, `MJESTA`, `ULICE_GEO`.
+2. **Dodaj skriptu**: u tabeli → *Proširenja → Apps Script*.
+   - u fajl `Code.gs` zalijepi sadržaj `apps-script/Kod.gs`;
+   - *+ → HTML* → nazovi fajl **`Karta`** → zalijepi `apps-script/Karta.html`;
+   - sačuvaj (💾) i zatvori.
+3. **Osvježi tabelu** (F5) – pojavi se meni **🪵 Drva**.
+4. Prvi put klikni bilo koju stavku menija i **odobri dozvole**
+   (Google pita „Autoriziraj“ → tvoj nalog → *Napredno → Nastavi*).
+
+---
+
+## 3. Svakodnevni rad
+
+### Upis isporuke
+Na listu `PODACI_CIJEPANO` ili `PODACI_U_DUGOM` klikni na red penzionera →
+**🪵 Drva → Upiši isporuku za označeni red** → upiši m³ i broj otpremnice.
+Skripta sama upiše datum, novo stanje, status i osvježi sve zbirove.
+
+*(Može i ručno: samo upiši broj u kolonu „Isporučeno m3“, pa pokreni
+„Osvježi sažetke“.)*
+
+### Pregled po ulicama
+**🪵 Drva → 1. Osvježi sažetke** – ponovo izračuna:
+- `ULICE_CIJEPANO` i `ULICE_U_DUGOM`: po ulici → broj korisnika, odobreno,
+  isporučeno, **preostalo m³**, koliko je korisnika gotovo, koliko čeka, i
+  status ulice (🟢 ZAVRŠENO / 🟡 U TOKU / 🔴 NIJE POČETO, obojeno);
+- `MJESTA`: zbir po mjestu i vrsti ogrjeva + postotak realizacije;
+- `ULICE_GEO`: jedan red po ulici s preostalim količinama obje vrste
+  (koordinate se čuvaju, ne brišu se pri osvježavanju).
+
+**Plan rute za dan**: sortiraj `ULICE_GEO` po „Preostalo ukupno m3“ i
+kreni od vrha – ili to isto pogledaj na karti.
+
+### Karta
+**🪵 Drva → 2. Geokodiraj ulice** (samo za ulice koje još nemaju koordinate)
+pa **3. Otvori kartu**.
+
+Na karti:
+- **crveni krug** = u toj ulici još ništa nije isporučeno,
+  **žuti** = djelimično, **zeleni** = ulica završena;
+- veličina kruga = koliko m³ je ostalo;
+- gore biraš **Cijepano / U dugom / Obje** i „Prikaži samo ulice gdje je ostalo“;
+- klik na ulicu → desno spisak **kome je isporučeno** (✓ s datumom i
+  otpremnicom) i **ko još čeka** (koliko m³, telefon), plus dugme
+  **Navigacija (Google Maps)** za vozača kamiona.
+
+Ako neka ulica ostane bez koordinata, upiši `Lat` i `Lng` ručno u `ULICE_GEO`
+(u Google Mapsu desni klik na lokaciju → klik na koordinate ih kopira).
+
+### Kontrola duplikata
+**🪵 Drva → Provjeri moguće duplikate ulica** ispisuje slične nazive u istom
+mjestu (npr. `Voloder` / `Volodor`). Ispravi naziv u `PODACI_*` i osvježi sažetke.
+
+---
+
+## 4. Ponovna priprema iz .xls fajlova (opcionalno)
+
+Ako stignu novi/ispravljeni `.xls` spiskovi, zamijeni ih u `podaci/` i pokreni:
+
+```bash
+python3 alati/pripremi.py      # čišćenje + spajanje duplikata + zbirovi
+python3 alati/geokodiraj.py    # (opcionalno) popuni Lat/Lng preko OpenStreetMapa
+```
+
+`geokodiraj.py` traži slobodan pristup internetu i nije pokrenut pri ovoj
+pripremi (mreža je bila zatvorena), pa je kolona `Lat`/`Lng` prazna –
+**koordinate se dobiju iz same tabele**, stavkom menija
+„2. Geokodiraj ulice“, koja koristi Googleov geokoder.
+
+Pravila spajanja mjesta i ulica su u `alati/normalizacija.py`
+(`MJESTA`, `ALIJASI_ULICA`, `SKRACENICE`) – tu se dodaje svaki novi izuzetak.
+
+Napomena: `alati/pripremi.py` piše novi `izlaz/PENZIONERI_DRVA.xlsx` iz izvornih
+`.xls` fajlova, pa **ne pokreći ga preko isporuka koje su upisane u Google
+Sheetsu** – u tom slučaju prvo preuzmi aktuelnu tabelu iz Sheetsa.

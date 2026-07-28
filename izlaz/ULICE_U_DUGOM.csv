@@ -1,0 +1,29 @@
+Mjesto,Ulica,Adresa ključ,Broj korisnika,Odobreno m3,Isporučeno m3,Preostalo m3,Isporučeno korisnika,Za isporuku korisnika,Status ulice
+Bosanska Krupa,Branilaca Grada,Bosanska Krupa|BRANILACA GRADA,4,45.0,28.0,17.0,2,2,U TOKU
+Bosanska Krupa,Drenova Glavica,Bosanska Krupa|DRENOVA GLAVICA,2,17.0,0.0,17.0,0,2,NIJE POČETO
+Bosanska Krupa,Zalug,Bosanska Krupa|ZALUG,2,17.0,0.0,17.0,0,2,NIJE POČETO
+Jezerski,Jezerski,Jezerski|JEZERSKI,1,10.0,0.0,10.0,0,1,NIJE POČETO
+Bosanska Krupa,101 Muslimanska,Bosanska Krupa|101 MUSLIMANSKA,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Krupa,Dana Nezavisnosti,Bosanska Krupa|DANA NEZAVISNOSTI,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Krupa,Gazijska,Bosanska Krupa|GAZIJSKA,3,21.0,14.0,7.0,2,1,U TOKU
+Bosanska Krupa,Ostružnica,Bosanska Krupa|OSTRUZNICA,2,14.0,7.0,7.0,1,1,U TOKU
+Bosanska Krupa,Prvomajska,Bosanska Krupa|PRVOMAJSKA,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Krupa,Ulica Terzić,Bosanska Krupa|TERZIC,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Krupa,Zahum,Bosanska Krupa|ZAHUM,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Otoka,(bez ulice),Bosanska Otoka|NAN,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Otoka,Manda,Bosanska Otoka|MANDA,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Otoka,Varmazi,Bosanska Otoka|VARMAZI,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Otoka,Željeznička,Bosanska Otoka|ZELJEZNICKA,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Mahmić Selo,Mahmić Selo,Mahmić Selo|MAHMIC SELO,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Pištaline,Oraščani,Pištaline|ORASCANI,1,7.0,0.0,7.0,0,1,NIJE POČETO
+Bosanska Krupa,Aleja Zlatnih Ljiljana,Bosanska Krupa|ALEJA ZLATNIH LJILJANA,4,28.0,28.0,0.0,4,0,ZAVRŠENO
+Bosanska Krupa,Bihaćka,Bosanska Krupa|BIHACKA,1,7.0,7.0,0.0,1,0,ZAVRŠENO
+Bosanska Krupa,Dž Čaušević,Bosanska Krupa|DZ CAUSEVIC,2,14.0,14.0,0.0,2,0,ZAVRŠENO
+Bosanska Krupa,Gen. Mir. Sedića,Bosanska Krupa|GEN MIR SEDICA,1,7.0,7.0,0.0,1,0,ZAVRŠENO
+Bosanska Krupa,Johovica,Bosanska Krupa|JOHOVICA,2,14.0,14.0,0.0,2,0,ZAVRŠENO
+Bosanska Krupa,Omladinska,Bosanska Krupa|OMLADINSKA,2,14.0,14.0,0.0,2,0,ZAVRŠENO
+Bosanska Krupa,Podgrmečka,Bosanska Krupa|PODGRMECKA,2,14.0,14.0,0.0,2,0,ZAVRŠENO
+Bosanska Krupa,Rasima Redžića,Bosanska Krupa|RASIMA REDZICA,1,7.0,7.0,0.0,1,0,ZAVRŠENO
+Bosanska Krupa,Vel Badić,Bosanska Krupa|VEL BADIC,3,21.0,21.0,0.0,3,0,ZAVRŠENO
+Bosanska Otoka,Radnička,Bosanska Otoka|RADNICKA,1,7.0,7.0,0.0,1,0,ZAVRŠENO
+Bosanska Otoka,Voloder,Bosanska Otoka|VOLODER,1,7.0,7.0,0.0,1,0,ZAVRŠENO
