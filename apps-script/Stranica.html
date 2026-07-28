@@ -42,6 +42,21 @@
   .oznaka { font-size:11px; padding:1px 6px; border-radius:10px; color:#fff; }
   footer { padding:10px 16px 24px; font-size:12px; color:#5f6368; }
   .poruka { padding:16px; font-size:13px; }
+  .legenda { display:flex; gap:16px; padding:0 16px 8px; font-size:12px; color:#5f6368; align-items:center; }
+  .legenda .znak { width:11px; height:11px; }
+
+  .odjeljak { padding:0 16px 24px; }
+  .odjeljak h2 { font-size:15px; margin:0 0 8px; }
+  .omot-tabele { overflow-x:auto; background:#fff; border:1px solid var(--linija); border-radius:8px; }
+  .tabela-korisnika { width:100%; border-collapse:collapse; font-size:12px; white-space:nowrap; }
+  .tabela-korisnika th, .tabela-korisnika td { padding:6px 8px; border-bottom:1px solid #f0f0f0; text-align:left; }
+  .tabela-korisnika thead th { background:#f1f3f4; position:sticky; top:0; font-size:11px;
+            text-transform:uppercase; color:#5f6368; }
+  .tabela-korisnika tr.red-isporuceno td:first-child { border-left:4px solid var(--zelena); }
+  .tabela-korisnika tr.red-ceka td:first-child { border-left:4px solid var(--crvena); }
+  .tabela-korisnika select, .tabela-korisnika input[type=search] {
+            width:100%; font-size:12px; padding:3px 4px; border:1px solid var(--linija); border-radius:4px; }
+  .broj-rezultata { padding:6px 8px; font-size:12px; color:#5f6368; }
   @media (max-width:700px){ #karta{height:44vh;} #spisak{max-height:none;} }
 </style>
 </head>
@@ -72,16 +87,53 @@
   <button id="osvjezi">↻ Osvježi</button>
 </div>
 
+<div class="legenda">
+  <span><span class="znak" style="display:inline-block;border-radius:50%;background:#188038"></span> isporučeno</span>
+  <span><span class="znak" style="display:inline-block;border-radius:50%;background:#d93025"></span> nije (ili djelimično) isporučeno</span>
+</div>
+
 <main>
   <div id="karta"></div>
   <div id="spisak"><div class="poruka">Učitavanje…</div></div>
 </main>
 
+<section class="odjeljak">
+  <h2>Spisak korisnika (filter po svakoj koloni)</h2>
+  <div class="omot-tabele">
+    <table class="tabela-korisnika">
+      <thead>
+        <tr>
+          <th>Vrsta</th><th>Mjesto</th><th>Ulica</th><th>Ime i prezime</th>
+          <th>Kategorija</th><th>Odobreno m³</th><th>Isporučeno m³</th>
+          <th>Preostalo m³</th><th>Status</th><th>Datum</th><th>Otpremnica</th>
+        </tr>
+        <tr id="redFiltera">
+          <th><select data-kolona="vrsta"></select></th>
+          <th><select data-kolona="mjesto"></select></th>
+          <th><select data-kolona="ulica"></select></th>
+          <th><input type="search" data-kolona="ime" placeholder="traži…"></th>
+          <th><select data-kolona="kategorija"></select></th>
+          <th></th><th></th><th></th>
+          <th><select data-kolona="status">
+            <option value="">sve</option>
+            <option value="ISPORUČENO">isporučeno</option>
+            <option value="DJELIMIČNO">djelimično</option>
+            <option value="ZA ISPORUKU">za isporuku</option>
+          </select></th>
+          <th></th><th></th>
+        </tr>
+      </thead>
+      <tbody id="tijeloTabele"></tbody>
+    </table>
+  </div>
+  <div class="broj-rezultata" id="brojRezultata"></div>
+</section>
+
 <footer id="napomena"></footer>
 
 <script>
 var PRIKAZI_TELEFONE = <?= prikaziTelefone ? 'true' : 'false' ?>;
-var SVE = [], karta, sloj, oznaceni = null;
+var SVE = [], SPISAK = [], karta, sloj, oznaceni = null;
 
 function pokreni() {
   karta = L.map('karta').setView([44.88, 16.15], 12);
@@ -104,7 +156,10 @@ function ucitaj() {
         ? 'Bez koordinata (nisu na karti, ali jesu u spisku): ' +
           o.bezKoordinata.join(', ')
         : '';
+      SPISAK = flatiziraj(SVE);
+      popuniFiltere(SPISAK);
       crtaj();
+      crtajTabelu();
     })
     .withFailureHandler(function (e) {
       document.getElementById('spisak').innerHTML =
@@ -156,9 +211,9 @@ function zbirZa(tacka) {
            isporuceno: Math.round(isporuceno * 100) / 100, korisnici: korisnici };
 }
 
+/** Dvije boje: zelena = u potpunosti isporučeno, crvena = ima preostalo. */
 function boja(z) {
-  if (z.preostalo <= 0.001) return '#188038';
-  return z.isporuceno > 0.001 ? '#f9ab00' : '#d93025';
+  return z.preostalo <= 0.001 ? '#188038' : '#d93025';
 }
 
 function odgovaraPretrazi(tacka, z, tekst) {
@@ -211,6 +266,81 @@ function popupHtml(tacka, z) {
         '</td></tr>';
     });
   return html + '</table></div>';
+}
+
+/** Pretvara SVE (tačke po ulici) u ravan spisak - jedan red po korisniku. */
+function flatiziraj(tacke) {
+  var spisak = [];
+  tacke.forEach(function (tacka) {
+    Object.keys(tacka.vrste || {}).forEach(function (naziv) {
+      tacka.vrste[naziv].korisnici.forEach(function (k) {
+        var status = k.preostalo <= 0.001 && k.isporuceno > 0 ? 'ISPORUČENO'
+          : k.isporuceno > 0.001 ? 'DJELIMIČNO' : 'ZA ISPORUKU';
+        spisak.push({
+          vrsta: naziv, mjesto: tacka.mjesto, ulica: tacka.ulica,
+          ime: k.ime, kategorija: k.kategorija || 'PENZIONER', telefon: k.telefon,
+          odobreno: k.odobreno, isporuceno: k.isporuceno, preostalo: k.preostalo,
+          status: status, datum: k.datum, otpremnica: k.otpremnica
+        });
+      });
+    });
+  });
+  return spisak;
+}
+
+function jedinstveneVrijednosti(spisak, kolona) {
+  var skup = {};
+  spisak.forEach(function (r) { skup[r[kolona]] = true; });
+  return Object.keys(skup).sort(function (a, b) { return a.localeCompare(b, 'bs'); });
+}
+
+function popuniFiltere(spisak) {
+  ['vrsta', 'mjesto', 'ulica', 'kategorija'].forEach(function (kolona) {
+    var el = document.querySelector('select[data-kolona=' + kolona + ']');
+    var trenutna = el.value;
+    el.innerHTML = '<option value="">sve</option>' +
+      jedinstveneVrijednosti(spisak, kolona).map(function (v) {
+        return '<option value="' + v.replace(/"/g, '&quot;') + '">' + v + '</option>';
+      }).join('');
+    el.value = trenutna;
+  });
+}
+
+function vrijednostiFiltera() {
+  var v = {};
+  document.querySelectorAll('#redFiltera [data-kolona]').forEach(function (el) {
+    v[el.getAttribute('data-kolona')] = el.value.trim();
+  });
+  return v;
+}
+
+function crtajTabelu() {
+  var f = vrijednostiFiltera();
+  var redovi = SPISAK.filter(function (r) {
+    if (f.vrsta && r.vrsta !== f.vrsta) return false;
+    if (f.mjesto && r.mjesto !== f.mjesto) return false;
+    if (f.ulica && r.ulica !== f.ulica) return false;
+    if (f.kategorija && r.kategorija !== f.kategorija) return false;
+    if (f.status && r.status !== f.status) return false;
+    if (f.ime && r.ime.toLowerCase().indexOf(f.ime.toLowerCase()) < 0) return false;
+    return true;
+  }).sort(function (a, b) {
+    return a.mjesto.localeCompare(b.mjesto, 'bs') || a.ulica.localeCompare(b.ulica, 'bs') ||
+      a.ime.localeCompare(b.ime, 'bs');
+  });
+
+  var tijelo = document.getElementById('tijeloTabele');
+  tijelo.innerHTML = redovi.map(function (r) {
+    var isporuceno = r.preostalo <= 0.001;
+    return '<tr class="' + (isporuceno ? 'red-isporuceno' : 'red-ceka') + '">' +
+      '<td>' + r.vrsta + '</td><td>' + r.mjesto + '</td><td>' + r.ulica + '</td>' +
+      '<td>' + r.ime + '</td><td>' + kategorijaZnak(r.kategorija) + '</td>' +
+      '<td>' + r.odobreno + '</td><td>' + r.isporuceno + '</td>' +
+      '<td><strong>' + r.preostalo + '</strong></td><td>' + r.status + '</td>' +
+      '<td>' + (r.datum || '') + '</td><td>' + (r.otpremnica || '') + '</td></tr>';
+  }).join('');
+  document.getElementById('brojRezultata').textContent =
+    redovi.length + ' od ' + SPISAK.length + ' korisnika';
 }
 
 function crtaj() {
@@ -304,6 +434,9 @@ document.getElementById('samoPreostalo').onchange = crtaj;
 document.getElementById('kategorija').onchange = crtaj;
 document.getElementById('pretraga').oninput = crtaj;
 document.getElementById('osvjezi').onclick = ucitaj;
+document.querySelectorAll('#redFiltera [data-kolona]').forEach(function (el) {
+  el[el.tagName === 'SELECT' ? 'onchange' : 'oninput'] = crtajTabelu;
+});
 pokreni();
 </script>
 </body>

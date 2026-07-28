@@ -92,9 +92,9 @@ function zbirZa(tacka) {
   };
 }
 
+/** Dvije boje: zelena = u potpunosti isporučeno, crvena = ima preostalo. */
 function boja(z) {
-  if (z.preostalo <= 0.001) return '#188038';        // sve isporučeno
-  return z.isporuceno > 0.001 ? '#f9ab00' : '#d93025'; // u toku / nije počelo
+  return z.preostalo <= 0.001 ? '#188038' : '#d93025';
 }
 
 function kratkaKategorija(k) {
