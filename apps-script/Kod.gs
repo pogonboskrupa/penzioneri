@@ -954,13 +954,42 @@ function otvoriRekap() {
   SpreadsheetApp.getActive().setActiveSheet(list_(LIST_REKAP));
 }
 
+// Svako udruženje (osnovna grupa) ima ugovor za OBA tipa drva - cijepano i
+// u dugom. Listovi CIJEPANO/U DUGOM već jesu ta podjela za penzionere; za
+// RVI/PORODICE ŠEHIDA/SINDIKAT tip drva po osobi prepoznaje se iz kolone
+// "Napomena" (npr. oznaka "DUG" u izvornom spisku Porodica šehida). Gdje
+// izvor ne razlikuje tip (RVI, Sindikat - trenutno nema te oznake u
+// dobijenim spiskovima), sve ide pod CIJEPANO dok se ne dobije precizniji
+// podatak - lako se ispravi upisom "DUG" u kolonu Napomena za te redove.
+var GRUPA_ZA_VRSTU_ = {
+  'CIJEPANO': 'PENZIONERI', 'U DUGOM': 'PENZIONERI',
+  'RVI': 'RVI', 'PORODICE ŠEHIDA': 'PORODICE ŠEHIDA', 'SINDIKAT': 'SINDIKAT'
+};
+var REDOSLIJED_GRUPA_ = ['PENZIONERI', 'RVI', 'PORODICE ŠEHIDA', 'SINDIKAT'];
+var TIPOVI_DRVA_ = ['CIJEPANO', 'U DUGOM'];
+
+function tipDrvaZaRed_(vrsta, napomena) {
+  if (vrsta.naziv === 'CIJEPANO' || vrsta.naziv === 'U DUGOM') return vrsta.naziv;
+  return String(napomena || '').toUpperCase().indexOf('DUG') >= 0 ? 'U DUGOM' : 'CIJEPANO';
+}
+
+function prazanZbir_() {
+  return { korisnika: 0, odobreno: 0, isporuceno: 0, preostalo: 0, gotovih: 0 };
+}
+
+function dodajUZbir_(z, odobreno, isporuceno, preostalo) {
+  z.korisnika++; z.odobreno += odobreno; z.isporuceno += isporuceno; z.preostalo += preostalo;
+  if (preostalo <= 0.001 && isporuceno > 0) z.gotovih++;
+}
+
 /**
- * List REKAP: isporučeno/neisporučeno po grupama (penzioneri, RVI,
- * porodice šehida, sindikat...) i otprema po mjesecima za iste grupe.
- * Mjesečni podaci dolaze iz kolone "Datum isporuke" u PODACI_* (datum
- * zadnje/jedine isporuke za tog korisnika) - za korisnike sa više
- * djelimičnih isporuka to je mjesec posljednje, tačniju historiju po
- * datumu svake pojedinačne isporuke ima list ISPORUKE.
+ * List REKAP: isporučeno/neisporučeno po GRUPI (Penzioneri, RVI, Porodice
+ * šehida, Sindikat) razdvojeno na CIJEPANO i U DUGOM, i otprema po
+ * mjesecima za iste kombinacije. Mjesečni podaci dolaze iz kolone
+ * "Datum isporuke" u PODACI_* (datum zadnje/jedine isporuke za tog
+ * korisnika) - za korisnike sa više djelimičnih isporuka to je mjesec
+ * posljednje; tačniju historiju po datumu svake pojedinačne isporuke ima
+ * list ISPORUKE.
  */
 function osvjeziRekap_() {
   var ss = SpreadsheetApp.getActive();
@@ -972,100 +1001,141 @@ function osvjeziRekap_() {
     s.clear();
   }
 
-  // --- zbir po grupama (isporučeno/neisporučeno) ---
-  var poGrupi = {};
-  var mjeseci = {};  // { 'yyyy-MM': { naziv_grupe: isporuceno_m3 } }
+  // --- zbir po (grupa, tip drva) ---
+  var poGrupiTip = {};  // { 'PENZIONERI': { 'CIJEPANO': {...}, 'U DUGOM': {...} }, ... }
+  REDOSLIJED_GRUPA_.forEach(function (g) {
+    poGrupiTip[g] = {};
+    TIPOVI_DRVA_.forEach(function (t) { poGrupiTip[g][t] = prazanZbir_(); });
+  });
+  var mjeseci = {};  // { 'yyyy-MM': { 'GRUPA|TIP': isporuceno_m3 } }
+
   VRSTE.forEach(function (vrsta) {
     var t = citaj_(vrsta.podaci);
-    var z = { korisnika: 0, odobreno: 0, isporuceno: 0, preostalo: 0, gotovih: 0 };
+    var grupa = GRUPA_ZA_VRSTU_[vrsta.naziv];
     t.redovi.forEach(function (r) {
       var odobreno = broj_(r[t.i['Odobreno m3']]);
       var isporuceno = broj_(r[t.i['Isporučeno m3']]);
       if (!odobreno && !isporuceno) return;
       var preostalo = Math.max(okrugli_(odobreno - isporuceno), 0);
-      z.korisnika++; z.odobreno += odobreno; z.isporuceno += isporuceno; z.preostalo += preostalo;
-      if (preostalo <= 0.001 && isporuceno > 0) z.gotovih++;
+      var napomena = t.i['Napomena'] !== undefined ? r[t.i['Napomena']] : '';
+      var tip = tipDrvaZaRed_(vrsta, napomena);
+      dodajUZbir_(poGrupiTip[grupa][tip], odobreno, isporuceno, preostalo);
 
       if (isporuceno > 0.001 && t.i['Datum isporuke'] !== undefined) {
         var kljuc = mjesecKljuc_(r[t.i['Datum isporuke']]);
         if (kljuc) {
+          var kljucGT = grupa + '|' + tip;
           if (!mjeseci[kljuc]) mjeseci[kljuc] = {};
-          mjeseci[kljuc][vrsta.naziv] = okrugli_((mjeseci[kljuc][vrsta.naziv] || 0) + isporuceno);
+          mjeseci[kljuc][kljucGT] = okrugli_((mjeseci[kljuc][kljucGT] || 0) + isporuceno);
         }
       }
     });
-    poGrupi[vrsta.naziv] = z;
   });
 
-  s.getRange('A1').setValue('REKAP – ISPORUKA OGRJEVA PO GRUPAMA')
+  s.getRange('A1').setValue('REKAP – ISPORUKA OGRJEVA PO GRUPAMA I TIPU DRVA')
     .setFontSize(16).setFontWeight('bold');
   s.getRange('A2').setValue('Osvježeno: ' +
     Utilities.formatDate(new Date(), 'Europe/Sarajevo', 'dd.MM.yyyy. HH:mm'))
     .setFontColor('#5f6368');
 
-  // --- tabela 1: isporučeno / neisporučeno po grupama ---
-  s.getRange('A4').setValue('Isporučena i neisporučena drvna masa po grupama')
+  // --- tabela 1: isporučeno / neisporučeno po grupi i tipu drva ---
+  s.getRange('A4').setValue('Isporučena i neisporučena drvna masa po grupama (cijepano / u dugom)')
     .setFontWeight('bold').setFontSize(13);
-  var zaglavlje1 = ['Grupa', 'Korisnika', 'Odobreno m³', 'Isporučeno m³',
+  var zaglavlje1 = ['Grupa', 'Tip drva', 'Korisnika', 'Odobreno m³', 'Isporučeno m³',
     'Neisporučeno m³', 'Realizacija'];
   s.getRange(5, 1, 1, zaglavlje1.length).setValues([zaglavlje1])
     .setFontWeight('bold').setBackground('#e8eaed');
-  var ukupno1 = { korisnika: 0, odobreno: 0, isporuceno: 0, preostalo: 0 };
-  VRSTE.forEach(function (vrsta, i) {
-    var z = poGrupi[vrsta.naziv];
-    var postotak = z.odobreno ? Math.round(z.isporuceno / z.odobreno * 100) : 0;
-    s.getRange(6 + i, 1, 1, zaglavlje1.length).setValues([[vrsta.naziv, z.korisnika,
-      okrugli_(z.odobreno), okrugli_(z.isporuceno), okrugli_(z.preostalo), postotak + '%']]);
-    ukupno1.korisnika += z.korisnika; ukupno1.odobreno += z.odobreno;
-    ukupno1.isporuceno += z.isporuceno; ukupno1.preostalo += z.preostalo;
-  });
-  var redUkupno1 = 6 + VRSTE.length;
-  var postotakUkupno = ukupno1.odobreno ? Math.round(ukupno1.isporuceno / ukupno1.odobreno * 100) : 0;
-  s.getRange(redUkupno1, 1, 1, zaglavlje1.length).setValues([['UKUPNO', ukupno1.korisnika,
-    okrugli_(ukupno1.odobreno), okrugli_(ukupno1.isporuceno), okrugli_(ukupno1.preostalo),
-    postotakUkupno + '%']]).setFontWeight('bold');
 
-  var grafikon1 = s.newChart().setChartType(Charts.ChartType.COLUMN)
-    .addRange(s.getRange(5, 1, VRSTE.length + 1, 1))                          // Grupa
-    .addRange(s.getRange(5, 4, VRSTE.length + 1, 2))                          // Isporučeno, Neisporučeno
-    .setPosition(6, 8, 0, 0)
-    .setOption('title', 'Isporučeno i neisporučeno po grupama (m³)')
-    .setOption('width', 560).setOption('height', 320)
+  var red = 6, ukupnoSve = prazanZbir_();
+  REDOSLIJED_GRUPA_.forEach(function (grupa) {
+    var ukupnoGrupa = prazanZbir_();
+    TIPOVI_DRVA_.forEach(function (tip) {
+      var z = poGrupiTip[grupa][tip];
+      var postotak = z.odobreno ? Math.round(z.isporuceno / z.odobreno * 100) : 0;
+      s.getRange(red, 1, 1, zaglavlje1.length).setValues([[nazivGrupe_(grupa),
+        nazivTipa_(tip), z.korisnika, okrugli_(z.odobreno), okrugli_(z.isporuceno),
+        okrugli_(z.preostalo), postotak + '%']]);
+      red++;
+      ['korisnika', 'odobreno', 'isporuceno', 'preostalo'].forEach(function (k) {
+        ukupnoGrupa[k] += z[k];
+      });
+    });
+    var postotakGrupa = ukupnoGrupa.odobreno
+      ? Math.round(ukupnoGrupa.isporuceno / ukupnoGrupa.odobreno * 100) : 0;
+    s.getRange(red, 1, 1, zaglavlje1.length).setValues([[nazivGrupe_(grupa) + ' - ukupno', '',
+      ukupnoGrupa.korisnika, okrugli_(ukupnoGrupa.odobreno), okrugli_(ukupnoGrupa.isporuceno),
+      okrugli_(ukupnoGrupa.preostalo), postotakGrupa + '%']])
+      .setFontWeight('bold').setBackground('#f1f3f4');
+    red++;
+    ['korisnika', 'odobreno', 'isporuceno', 'preostalo'].forEach(function (k) {
+      ukupnoSve[k] += ukupnoGrupa[k];
+    });
+  });
+  var postotakSve = ukupnoSve.odobreno ? Math.round(ukupnoSve.isporuceno / ukupnoSve.odobreno * 100) : 0;
+  s.getRange(red, 1, 1, zaglavlje1.length).setValues([['SVEUKUPNO', '', ukupnoSve.korisnika,
+    okrugli_(ukupnoSve.odobreno), okrugli_(ukupnoSve.isporuceno), okrugli_(ukupnoSve.preostalo),
+    postotakSve + '%']]).setFontWeight('bold').setBackground('#dadce0');
+  var redZadnji1 = red;
+
+  var pomKolona1 = 10;  // J - pomoćna tabela za graf, van vidokruga glavne tabele
+  var pomZaglavlje1 = ['Grupa i tip', 'Isporučeno m³', 'Neisporučeno m³'];
+  s.getRange(5, pomKolona1, 1, 3).setValues([pomZaglavlje1]);
+  var pomRedovi1 = [];
+  REDOSLIJED_GRUPA_.forEach(function (grupa) {
+    TIPOVI_DRVA_.forEach(function (tip) {
+      var z = poGrupiTip[grupa][tip];
+      pomRedovi1.push([nazivGrupe_(grupa) + ' - ' + nazivTipa_(tip),
+        okrugli_(z.isporuceno), okrugli_(z.preostalo)]);
+    });
+  });
+  s.getRange(6, pomKolona1, pomRedovi1.length, 3).setValues(pomRedovi1);
+  var grafikonIsporuke = s.newChart().setChartType(Charts.ChartType.COLUMN)
+    .addRange(s.getRange(5, pomKolona1, pomRedovi1.length + 1, 3))
+    .setPosition(6, pomKolona1 + 4, 0, 0)
+    .setOption('title', 'Isporučeno i neisporučeno po grupi i tipu drva (m³)')
+    .setOption('width', 620).setOption('height', 340)
     .setOption('colors', ['#188038', '#d93025'])
     .setOption('isStacked', true)
     .build();
-  s.insertChart(grafikon1);
+  s.insertChart(grafikonIsporuke);
 
-  // --- tabela 2: otprema po mjesecima za iste grupe ---
-  var redNaslov2 = redUkupno1 + 3;
-  s.getRange(redNaslov2, 1).setValue('Otprema po mjesecima, po grupama (m³ isporučeno)')
+  // --- tabela 2: otprema po mjesecima, po grupi i tipu drva ---
+  var redNaslov2 = redZadnji1 + 3;
+  s.getRange(redNaslov2, 1).setValue('Otprema po mjesecima, po grupi i tipu drva (m³ isporučeno)')
     .setFontWeight('bold').setFontSize(13);
   var redZaglavlje2 = redNaslov2 + 1;
-  var zaglavlje2 = ['Mjesec'].concat(VRSTE.map(function (v) { return v.naziv; }), ['UKUPNO']);
+  var koloneGT = [];
+  REDOSLIJED_GRUPA_.forEach(function (grupa) {
+    TIPOVI_DRVA_.forEach(function (tip) { koloneGT.push(grupa + '|' + tip); });
+  });
+  var zaglavlje2 = ['Mjesec'].concat(koloneGT.map(function (k) {
+    var dio = k.split('|');
+    return nazivGrupe_(dio[0]) + ' - ' + nazivTipa_(dio[1]);
+  }), ['UKUPNO']);
   s.getRange(redZaglavlje2, 1, 1, zaglavlje2.length).setValues([zaglavlje2])
     .setFontWeight('bold').setBackground('#e8eaed');
 
   var kljucevi = Object.keys(mjeseci).sort();
   if (kljucevi.length) {
     var redoviMjeseci = kljucevi.map(function (k) {
-      var red = [opisMjeseca_(k)];
+      var redM = [opisMjeseca_(k)];
       var ukupnoMjesec = 0;
-      VRSTE.forEach(function (v) {
-        var iznos = okrugli_((mjeseci[k][v.naziv] || 0));
-        red.push(iznos);
+      koloneGT.forEach(function (kgt) {
+        var iznos = okrugli_(mjeseci[k][kgt] || 0);
+        redM.push(iznos);
         ukupnoMjesec += iznos;
       });
-      red.push(okrugli_(ukupnoMjesec));
-      return red;
+      redM.push(okrugli_(ukupnoMjesec));
+      return redM;
     });
     s.getRange(redZaglavlje2 + 1, 1, redoviMjeseci.length, zaglavlje2.length)
       .setValues(redoviMjeseci);
 
     var grafikon2 = s.newChart().setChartType(Charts.ChartType.COLUMN)
-      .addRange(s.getRange(redZaglavlje2, 1, redoviMjeseci.length + 1, VRSTE.length + 1))
-      .setPosition(redZaglavlje2, 8, 0, 0)
-      .setOption('title', 'Otprema po mjesecima, po grupama (m³)')
-      .setOption('width', 700).setOption('height', 340)
+      .addRange(s.getRange(redZaglavlje2, 1, redoviMjeseci.length + 1, koloneGT.length + 1))
+      .setPosition(redZaglavlje2, 9, 0, 0)
+      .setOption('title', 'Otprema po mjesecima, po grupi i tipu drva (m³)')
+      .setOption('width', 760).setOption('height', 360)
       .setOption('isStacked', true)
       .build();
     s.insertChart(grafikon2);
@@ -1075,7 +1145,15 @@ function osvjeziRekap_() {
   }
 
   s.setColumnWidth(1, 190);
-  for (var c = 2; c <= zaglavlje2.length; c++) s.setColumnWidth(c, 140);
+  for (var c = 2; c <= Math.max(zaglavlje1.length, zaglavlje2.length); c++) s.setColumnWidth(c, 130);
+}
+
+function nazivGrupe_(g) {
+  return g.charAt(0) + g.slice(1).toLowerCase();
+}
+
+function nazivTipa_(t) {
+  return t === 'CIJEPANO' ? 'Cijepano' : 'U dugom';
 }
 
 /* --------------------------------------------- automatsko osvježavanje */

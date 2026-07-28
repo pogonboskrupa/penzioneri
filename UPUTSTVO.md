@@ -203,13 +203,32 @@ Osvježava se i sam pri svakom „Osvježi sažetke".
 **🪵 Drva → Otvori rekap (grupe + mjeseci)** pravi/osvježi list `REKAP` sa
 dvije tabele i dva grafikona:
 
-1. **Isporučena i neisporučena drvna masa po grupama** – jedan red po grupi
-   (penzioneri-cijepano, penzioneri-u dugom, RVI, porodice šehida, sindikat)
+Obje tabele razdvajaju **svaku grupu na cijepano i u dugom** (svako
+udruženje ima ugovor za oba tipa drva), ne samo ukupan zbir:
+
+1. **Isporučena i neisporučena drvna masa po grupama** – po dva reda za
+   svaku osnovnu grupu (Penzioneri, RVI, Porodice šehida, Sindikat): jedan
+   red za „Cijepano”, jedan za „U dugom”, pa red „… - ukupno” za tu grupu,
    sa brojem korisnika, odobrenim, isporučenim, preostalim m³ i procentom
-   realizacije, plus red UKUPNO i stubičasti grafikon isporučeno/neisporučeno.
-2. **Otprema po mjesecima, po grupama** – tabela mjesec × grupa (m³
-   isporučeno tog mjeseca za tu grupu) i grafikon ispod, korisno za praćenje
-   dinamike tokom sezone (npr. koliko je otpremljeno u julu vs. avgustu).
+   realizacije. Na dnu je red **SVEUKUPNO**, i stubičasti grafikon
+   isporučeno/neisporučeno po svih 8 kombinacija grupa×tip.
+2. **Otprema po mjesecima, po grupi i tipu drva** – tabela mjesec × (grupa,
+   tip) sa m³ isporučenim tog mjeseca, i grafikon ispod – korisno za
+   praćenje dinamike tokom sezone (npr. koliko je cijepanog otpremljeno RVI
+   korisnicima u julu vs. avgustu).
+
+**Kako se određuje tip drva (cijepano/u dugom) po osobi:**
+- za penzionere je to trivijalno – dolaze iz zasebnih listova
+  `PODACI_CIJEPANO` i `PODACI_U_DUGOM`;
+- za **Porodice šehida** čita se iz kolone „Napomena” – izvorni spisak je
+  imao oznaku „DUG” za 8 od 25 korisnika, ti idu pod „u dugom”, ostali pod
+  „cijepano”;
+- za **RVI** i **Sindikat** izvorni spiskovi trenutno nemaju tu oznaku, pa
+  svi njihovi korisnici idu pod „cijepano” dok se ne dobije precizniji
+  podatak. Čim saznaš ko od njih prima „u dugom”, upiši riječ **„DUG”**
+  (bilo gdje u tekstu) u kolonu **„Napomena”** za taj red u `PODACI_RVI` ili
+  `PODACI_SINDIKAT`, pa pokreni „Osvježi sažetke” ili „Otvori rekap” – rekap
+  će ga automatski prebaciti u „u dugom”.
 
 Mjesečni podaci se računaju iz kolone **„Datum isporuke”** u `PODACI_*`
 (prepoznaje i datum kao pravi datum i kao tekst tipa „23.07.2026.”). Korisnik
