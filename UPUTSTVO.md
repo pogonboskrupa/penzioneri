@@ -135,32 +135,25 @@ Krupe) i da se snađe i kad je naziv ulice upisan približno:
    gdje treba (npr. gdje živi kupac) – pin se odmah snimi u `ULICE_GEO` s
    oznakom „ručno” i geokodiranje je više neće dirati.
 
-**Desni klik na pin** (ili duži pritisak na telefonu) otvara brzi meni s dvije
-stavke: **ℹ️ Info** (isto što i klik – detalji i spisak korisnika) i
-**📍 Ispravi lokaciju** (odmah uključi „klikni na kartu" način rada, bez
-prethodnog otvaranja detalja).
+### Odjeljak „🛠 Riješi adrese” – postavljanje i ispravka pina
+Sve što se tiče lokacije ulice na karti (nove ili pogrešne) rješava se na
+**jednom mjestu**, odjeljku **🛠 Riješi adrese** u bočnom panelu (na kraju
+liste ulica):
 
-**Ako je pin na krivom mjestu** (svejedno da li je „približno” ili čak
-označen kao „ulica”, a Google je ipak pogodio pogrešnu lokaciju) – klikni na
-taj pin ili na ulicu u desnom spisku da otvoriš detalje, pa dugme
-**📍 Ispravi lokaciju** na dnu (u oblačiću markera ili u panelu s desne
-strane) → klikni na kartu tačno gdje treba da bude → pin se odmah pomjeri
-i snimi u `ULICE_GEO` s oznakom „ručno”. Ova ispravka je trajna: naredna
-pokretanja „Geokodiraj ulice” je više ne diraju.
+- **pretraga hvata približno** – upiši ulicu ili mjesto i pored tačnih
+  pogodaka izlaze i **slični nazivi uz tipfelere** (npr. upišeš „Sokka” i
+  nađe „Sokak”; upišeš „Bihacka” bez dijakritike i nađe „Bihaćka”);
+- bez upisanog teksta odjeljak sam pokaže **sve adrese koje još nemaju
+  lokaciju** – to je prvo mjesto za provjeru poslije geokodiranja;
+- klikni **Postavi pin** (nova adresa) ili **Pomjeri pin** (već ima
+  lokaciju, ali je pogrešna) → traka pri vrhu kaže „Klikni na kartu…” →
+  klikni tačno mjesto na karti → pin se odmah snimi u `ULICE_GEO` s oznakom
+  „ručno” i geokodiranje ga više neće dirati.
 
-Ovo isto (spisak „Nesvrstano” + dugme „📍 Ispravi lokaciju” na svakoj ulici)
-postoji i na **javnoj stranici** (poglavlje 4), da vozač na terenu, ne samo
-administrator u Sheetsu, može ispraviti pogrešnu lokaciju sa telefona.
-
-### Lozinka za pomjeranje pina na javnoj stranici
-Javna stranica se izvršava kao ti (Execute as: Me), pa bi bez zaštite svako
-s linkom mogao mijenjati lokacije. Zato pomjeranje pina na javnoj stranici
-radi samo ako prije toga postaviš lozinku:
-**🪵 Drva → Postavi lozinku za pomjeranje pina na javnoj stranici** →
-upiši lozinku (ili ostavi prazno da potpuno isključiš uređivanje sa javne
-stranice). Osoba koja pomjera pin je unese samo jednom po pregledniku –
-stranica je pamti dok ne zatvori tu karticu. Pregled karte, spiska i
-tabele rade svima bez lozinke, ograničeno je samo pomjeranje pina.
+Nema posebne lozinke ni dozvole za ovo – ko god ima pristup karti (u
+Sheetsu ili na javnoj stranici) može ispraviti adresu, isto kao što može i
+upisati isporuku. Isti odjeljak postoji i na karti u Sheetsu i na javnoj
+stranici (poglavlje 4).
 
 Ponovno pokretanje **Geokodiraj ulice** ne dira ulice već označene „ulica”
 ili „ručno” – samo pokušava poboljšati one označene „slično”, „naselje” ili
@@ -213,9 +206,14 @@ Stranica **ne drži svoju kopiju podataka** – svaki put čita tabelu, pa se sv
 izmjena u Google Sheetsu odmah vidi na stranici (i sama se osvježava svakih 5 minuta).
 
 Stranica je namjerno napravljena da izgleda i radi isto kao karta u
-Sheetsu (poglavlje 3) – iste boje, isti spisak „Nesvrstano", isto dugme
-„📍 Ispravi lokaciju" – samo je zaštićena lozinkom za pomjeranje pina
-(vidi gore) jer je javno dostupna.
+Sheetsu (poglavlje 3) – iste boje, isti odjeljak **🛠 Riješi adrese** s
+približnom pretragom za postavljanje/pomjeranje pina.
+
+> **Napomena:** stranica nema lozinku ni prijavu – ko god ima link, može
+> pregledati podatke i ispravljati lokacije ulica. Ako ne želiš da bude
+> potpuno javna, ograniči pristup kroz *Deploy* podešavanja (*Who has
+> access*) na svoju organizaciju ili konkretne naloge, umjesto „Anyone with
+> the link”.
 
 ### 4.1 Objavi stranicu iz tabele
 1. U Apps Scriptu dodaj i treći fajl: **+ → HTML → `Stranica`** →

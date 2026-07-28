@@ -31,21 +31,13 @@
                 font-size: 12px; margin-bottom: 8px; }
   a.nav { font-size: 12px; }
   .priblizno { font-size: 10px; color: #b26a00; font-weight: normal; }
-  .nesvrstano-stavka { border-bottom: 1px solid #eee; padding: 6px 0; font-size: 13px; }
-  .nesvrstano-stavka button { font-size: 12px; padding: 3px 8px; margin-top: 4px; cursor: pointer; }
-  .nesvrstano-stavka button.aktivno { background: #d93025; color: #fff; border-color: #d93025; }
   #trakaPostavljanja { display: none; background: #d93025; color: #fff; padding: 6px 10px;
                        font-size: 13px; text-align: center; }
-  .dugme-ispravi { font-size: 12px; padding: 4px 10px; margin-top: 6px; cursor: pointer;
-                   border: 1px solid #1a73e8; color: #1a73e8; background: #fff; border-radius: 4px; }
-  .dugme-ispravi.aktivno { background: #d93025; color: #fff; border-color: #d93025; }
-  .kontekst-popup .leaflet-popup-content-wrapper { padding: 0; border-radius: 6px; }
-  .kontekst-popup .leaflet-popup-content { margin: 0; }
-  .kontekst-meni { display: flex; flex-direction: column; min-width: 160px; }
-  .kontekst-meni button { border: 0; background: #fff; text-align: left; padding: 9px 14px;
-                          font-size: 13px; cursor: pointer; border-bottom: 1px solid #eee; }
-  .kontekst-meni button:last-child { border-bottom: 0; }
-  .kontekst-meni button:hover { background: #f1f3f4; }
+  #trazicAdresa { padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px;
+                  width: 100%; font-size: 13px; margin-bottom: 8px; }
+  .adresa-stavka { border-bottom: 1px solid #eee; padding: 6px 0; font-size: 13px; }
+  .adresa-stavka button { font-size: 12px; padding: 3px 8px; margin-left: 4px; cursor: pointer; }
+  .adresa-stavka button.aktivno { background: #d93025; color: #fff; border-color: #d93025; }
 </style>
 </head>
 <body>
@@ -62,10 +54,12 @@
     <div id="karta"></div>
     <div id="bocna">
       <div id="upozorenje"></div>
-      <div id="odjeljakNesvrstano"></div>
       <h3>Ulice (najviše preostalo prvo)</h3>
       <div id="spisak">Učitavanje…</div>
       <div id="detalji"></div>
+      <h3>🛠 Riješi adrese</h3>
+      <input type="search" id="trazicAdresa" placeholder="Traži ulicu ili mjesto (hvata i tipfelere)…">
+      <div id="rezultatiAdresa"></div>
     </div>
   </div>
 </div>
@@ -77,17 +71,17 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(karta);
 
 var sloj = L.layerGroup().addTo(karta);
-var SVE = [], BEZ_KOORDINATA = [], postavljaSeKljuc = null;
+var SVE = [], postavljaSeKljuc = null;
 
 function ucitajSve() {
   google.script.run.withSuccessHandler(function (odgovor) {
     SVE = odgovor.tacke || [];
-    BEZ_KOORDINATA = odgovor.bezKoordinata || [];
-    document.getElementById('upozorenje').innerHTML = BEZ_KOORDINATA.length
-      ? '<div class="upozorenje">' + BEZ_KOORDINATA.length + ' ulica nema tačnu lokaciju - ' +
-        'postavi ih ručno u spisku "Nesvrstano" ispod, ili pokreni "Geokodiraj ulice".</div>'
+    var bezLokacije = SVE.filter(function (t) { return t.lat === null; }).length;
+    document.getElementById('upozorenje').innerHTML = bezLokacije
+      ? '<div class="upozorenje">' + bezLokacije + ' ulica nema tačnu lokaciju - ' +
+        'riješi ih u odjeljku "🛠 Riješi adrese" ispod, ili pokreni "Geokodiraj ulice".</div>'
       : '';
-    crtajNesvrstano();
+    crtajRijesiAdrese();
     crtaj();
   }).withFailureHandler(function (e) {
     document.getElementById('spisak').textContent = 'Greška: ' + e.message;
@@ -110,25 +104,82 @@ function pripremiIzborVrste(nastavak) {
 
 pripremiIzborVrste(ucitajSve);
 
-/** Spisak ulica bez (ili s pogrešnom) lokacijom - klik na dugme pa na kartu. */
-function crtajNesvrstano() {
-  var el = document.getElementById('odjeljakNesvrstano');
-  if (!BEZ_KOORDINATA.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<h3>Nesvrstano (' + BEZ_KOORDINATA.length + ')</h3>';
-  BEZ_KOORDINATA.forEach(function (u) {
+/* ------------------------------------- riješi adrese (postavi/pomjeri pin) */
+
+/** Bigram (Dice) sličnost dva teksta - hvata tipfelere i približna imena. */
+function normalizujTekst_(s) {
+  return String(s || '').toUpperCase()
+    .replace(/[ČĆ]/g, 'C').replace(/Ž/g, 'Z').replace(/Š/g, 'S').replace(/Đ/g, 'D')
+    .replace(/[^A-Z0-9]+/g, ' ').trim();
+}
+
+function slicnostTeksta_(a, b) {
+  a = normalizujTekst_(a); b = normalizujTekst_(b);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.indexOf(b) >= 0 || b.indexOf(a) >= 0) return 0.75;
+  if (a.length < 2 || b.length < 2) return 0;
+  function bigrami(s) {
+    var m = {};
+    for (var i = 0; i < s.length - 1; i++) { var p = s.substr(i, 2); m[p] = (m[p] || 0) + 1; }
+    return m;
+  }
+  var A = bigrami(a), B = bigrami(b), zajedno = 0, ukupnoA = 0, ukupnoB = 0;
+  Object.keys(A).forEach(function (p) { ukupnoA += A[p]; if (B[p]) zajedno += Math.min(A[p], B[p]); });
+  Object.keys(B).forEach(function (p) { ukupnoB += B[p]; });
+  return (2 * zajedno) / (ukupnoA + ukupnoB);
+}
+
+/** Spisak svih adresa (sa i bez lokacije) - traži se približno po ulici/mjestu. */
+function crtajRijesiAdrese() {
+  var tekst = document.getElementById('trazicAdresa').value.trim();
+  var el = document.getElementById('rezultatiAdresa');
+  var sve = SVE.map(function (t) {
+    return { kljuc: t.kljuc, ulica: t.ulica, mjesto: t.mjesto, imaLokaciju: t.lat !== null };
+  });
+  var stavke;
+
+  if (tekst) {
+    stavke = sve.map(function (a) {
+      var ocjena = Math.max(
+        slicnostTeksta_(tekst, a.ulica),
+        slicnostTeksta_(tekst, a.mjesto),
+        slicnostTeksta_(tekst, a.ulica + ' ' + a.mjesto) - 0.05);
+      return { a: a, ocjena: ocjena };
+    }).filter(function (r) { return r.ocjena >= 0.3; })
+      .sort(function (x, y) { return y.ocjena - x.ocjena; })
+      .slice(0, 30)
+      .map(function (r) { return r.a; });
+  } else {
+    stavke = sve.filter(function (a) { return !a.imaLokaciju; })
+      .sort(function (x, y) {
+        return x.mjesto.localeCompare(y.mjesto, 'bs') || x.ulica.localeCompare(y.ulica, 'bs');
+      });
+  }
+
+  if (!stavke.length) {
+    el.innerHTML = '<div style="font-size:12px;color:#666;padding:6px 0">' +
+      (tekst ? 'Nema poklapanja za "' + tekst + '".'
+             : 'Sve adrese imaju postavljenu lokaciju. 🎉') + '</div>';
+    return;
+  }
+  el.innerHTML = '';
+  stavke.forEach(function (a) {
     var d = document.createElement('div');
-    d.className = 'nesvrstano-stavka';
-    d.innerHTML = '<strong>' + u.ulica + '</strong> <span style="color:#666">' + u.mjesto +
-      '</span><br><button data-kljuc="' + u.kljuc.replace(/"/g, '&quot;') + '">Postavi pin</button>';
-    d.querySelector('button').onclick = function (ev) {
-      pokreniPostavljanje(u.kljuc, ev.target);
-    };
+    d.className = 'adresa-stavka';
+    d.innerHTML = '<strong>' + a.ulica + '</strong> <span style="color:#666">' + a.mjesto +
+      '</span>' + (a.imaLokaciju ? '' : ' <span style="color:#b26a00">(nema lokaciju)</span>') +
+      '<button data-kljuc="' + a.kljuc.replace(/"/g, '&quot;') + '">' +
+      (a.imaLokaciju ? 'Pomjeri pin' : 'Postavi pin') + '</button>';
+    d.querySelector('button').onclick = function (ev) { pokreniPostavljanje(a.kljuc, ev.target); };
     el.appendChild(d);
   });
 }
 
-/** Uključuje "klikni na kartu" način rada - koristi se i za ulice bez
- * lokacije (Nesvrstano) i za ispravku već postavljenog (pogrešnog) pina. */
+document.getElementById('trazicAdresa').oninput = crtajRijesiAdrese;
+
+/** Uključuje "klikni na kartu" način rada - koristi se za postavljanje i za
+ * ispravku (pomjeranje) već postavljenog pina, uvijek iz odjeljka "Riješi adrese". */
 function pokreniPostavljanje(kljuc, dugme) {
   resetujDugmadPostavljanja_();
   if (postavljaSeKljuc === kljuc) {           // ponovni klik - otkaži
@@ -137,15 +188,20 @@ function pokreniPostavljanje(kljuc, dugme) {
   }
   karta.closePopup();
   postavljaSeKljuc = kljuc;
-  if (dugme) { dugme.classList.add('aktivno'); dugme.textContent = 'Klikni na kartu…'; }
+  if (dugme) {
+    dugme.classList.add('aktivno');
+    dugme.setAttribute('data-tekst-prije', dugme.textContent);
+    dugme.textContent = 'Klikni na kartu…';
+  }
   document.getElementById('trakaPostavljanja').style.display = 'block';
   document.getElementById('karta').style.cursor = 'crosshair';
 }
 
 function resetujDugmadPostavljanja_() {
-  document.querySelectorAll('.nesvrstano-stavka button, .dugme-ispravi').forEach(function (b) {
+  document.querySelectorAll('.adresa-stavka button').forEach(function (b) {
     b.classList.remove('aktivno');
-    b.textContent = b.classList.contains('dugme-ispravi') ? '📍 Ispravi lokaciju' : 'Postavi pin';
+    var prije = b.getAttribute('data-tekst-prije');
+    if (prije) { b.textContent = prije; b.removeAttribute('data-tekst-prije'); }
   });
 }
 
@@ -245,35 +301,7 @@ function popupHtml(tacka, z) {
                  (k.datum ? ' (' + k.datum + ')' : '')
                : 'ostalo ' + k.preostalo + ' m3') + '</td></tr>';
     });
-  html += '</table><button class="dugme-ispravi" data-kljuc="' +
-    String(tacka.kljuc).replace(/"/g, '&quot;') + '">📍 Ispravi lokaciju</button>';
-  return html + '</div>';
-}
-
-// Dugme "Ispravi lokaciju" se ubacuje u DOM tek kad se popup otvori
-// (Leaflet ga gradi iz HTML stringa), pa se klik hvata na taj događaj.
-karta.on('popupopen', function (e) {
-  var dugme = e.popup.getElement().querySelector('.dugme-ispravi');
-  if (dugme) {
-    dugme.onclick = function () { pokreniPostavljanje(dugme.getAttribute('data-kljuc'), dugme); };
-  }
-});
-
-/** Desni klik na pin: mali meni "Info" / "Ispravi lokaciju". */
-function prikaziKontekstniMeni(latlng, tacka, z) {
-  var sadrzaj = '<div class="kontekst-meni">' +
-    '<button id="kmInfo">ℹ️ Info</button>' +
-    '<button id="kmIspravi">📍 Ispravi lokaciju</button></div>';
-  L.popup({ closeButton: false, className: 'kontekst-popup', offset: [0, -4] })
-    .setLatLng(latlng).setContent(sadrzaj).openOn(karta);
-  document.getElementById('kmInfo').onclick = function () {
-    karta.closePopup();
-    prikaziDetalje(tacka, z);
-  };
-  document.getElementById('kmIspravi').onclick = function () {
-    karta.closePopup();
-    pokreniPostavljanje(tacka.kljuc, null);
-  };
+  return html + '</table></div>';
 }
 
 function crtaj() {
@@ -298,10 +326,6 @@ function crtaj() {
     marker.bindTooltip(tooltipHtml(tacka, z), { direction: 'top' });
     marker.bindPopup(popupHtml(tacka, z), { maxWidth: 340, maxHeight: 320 });
     marker.on('click', function () { prikaziDetalje(tacka, z); });
-    marker.on('contextmenu', function (e) {
-      L.DomEvent.preventDefault(e.originalEvent);
-      prikaziKontekstniMeni(e.latlng, tacka, z);
-    });
     redovi.push({ tacka: tacka, z: z, marker: marker });
   });
 
@@ -356,12 +380,7 @@ function prikaziDetalje(tacka, z) {
           (k.isporuceno ? '<br>dio isporučen: ' + k.isporuceno + ' m3' : '')) +
       '</td></tr>';
   });
-  html += '</table><button class="dugme-ispravi" data-kljuc="' +
-    String(tacka.kljuc).replace(/"/g, '&quot;') + '">📍 Ispravi lokaciju</button>';
-  document.getElementById('detalji').innerHTML = html;
-  document.getElementById('detalji').querySelector('.dugme-ispravi').onclick = function (ev) {
-    pokreniPostavljanje(tacka.kljuc, ev.target);
-  };
+  document.getElementById('detalji').innerHTML = html + '</table>';
 }
 
 document.getElementById('samoPreostalo').onchange = crtaj;
