@@ -65,6 +65,18 @@ REDOSLIJED = ["Vrsta", "Redni broj", "Matični broj", "Prezime", "Ime", "Kategor
               "Adresa ključ", "Original mjesto", "Original ulica"]
 
 
+def redni_broj(v):
+    """Svede 'Redni broj' na pravi cijeli broj (ne tekst) da bi sortiranje i
+    filtriranje u Google Sheetsu bilo brojčano (1,2,3...), a ne
+    leksikografsko (1,10,11,2...). Izvorni zapisi znaju imati tačku na
+    kraju ("1.") ili biti već float (110.0)."""
+    s = str(v).strip().rstrip(".")
+    try:
+        return int(float(s))
+    except ValueError:
+        return v
+
+
 def _red(vrsta, kategorija, rb, maticni, prezime, ime, mjesto_sirovo, ulica_sirovo,
          telefon, odobreno, isporuceno, datum, otpremnica, napomena):
     odobreno = round(odobreno or 0.0, 2)
@@ -72,7 +84,7 @@ def _red(vrsta, kategorija, rb, maticni, prezime, ime, mjesto_sirovo, ulica_siro
     preostalo = max(round(odobreno - isporuceno, 2), 0.0)
     return {
         "Vrsta": vrsta,
-        "Redni broj": rb,
+        "Redni broj": redni_broj(rb),
         "Matični broj": maticni,
         "Prezime": prezime,
         "Ime": ime,

@@ -242,6 +242,12 @@ za potpuno tačnu historiju po datumu svake pojedinačne isporuke pogledaj
 list `ISPORUKE`. Rekap se osvježava i sam pri svakom „Osvježi sažetke".
 
 ### Zaštita i automatika (meni `Podešavanja`)
+- **Ispravi „Redni broj" u pravi broj (tekst → broj)** – ako filtriranje ili
+  sortiranje po koloni „Redni broj" ide slovnim redom (1, 10, 11, 2, 20…)
+  umjesto brojčanim (1, 2, 3…), znači da je ta kolona upisana kao tekst
+  (čest slučaj poslije uvoza iz .xls/.csv). Ova stavka je pretvori u pravi
+  broj u svim listovima `PODACI_*`, bez diranja bilo koje druge kolone ili
+  već unesenih isporuka – siguran je pokrenuti bilo kad.
 - **Zaključaj računate kolone** – `Preostalo m3` i `Status` računa skripta, pa
   ih ova stavka zaštiti od ručne izmjene (vlasnik i dalje može, skripta radi
   normalno). „Otključaj" skida zaštitu. Napomena: ako je uključeno, automatski

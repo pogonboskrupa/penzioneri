@@ -35,6 +35,7 @@ function onOpen() {
       .addItem('Dupli matični brojevi u istom spisku', 'provjeriDupleKorisnike'))
     .addSubMenu(ui.createMenu('Podešavanja')
       .addItem('Izbor kategorija (penzioner/RVI/sindikat)', 'postaviKategorije')
+      .addItem('Ispravi "Redni broj" u pravi broj (tekst → broj)', 'ispraviRedniBroj')
       .addItem('Zaključaj računate kolone', 'zakljucajRacunateKolone')
       .addItem('Otključaj računate kolone', 'otkljucajRacunateKolone')
       .addItem('Uključi automatsko jutarnje osvježavanje', 'ukljuciDnevnoOsvjezavanje')
@@ -1187,6 +1188,35 @@ function iskljuciOkidace_() {
     if (o.getHandlerFunction() === FUNKCIJA_OKIDACA) { ScriptApp.deleteTrigger(o); broj++; }
   });
   return broj;
+}
+
+/**
+ * Ako je "Redni broj" upisan kao tekst (čest slučaj poslije uvoza iz
+ * .xls/.csv), Google Sheets ga sortira i filtrira slovno (1, 10, 11, 2...)
+ * umjesto brojčano. Ovo pretvara postojeće vrijednosti u pravi broj, u
+ * svim listovima PODACI_*, bez diranja bilo koje druge kolone ili podatka.
+ */
+function ispraviRedniBroj() {
+  var ispravljeno = 0, preskoceno = 0;
+  VRSTE.forEach(function (vrsta) {
+    var list = list_(vrsta.podaci);
+    var t = citaj_(vrsta.podaci);
+    var kolona = t.i['Redni broj'];
+    if (kolona === undefined || !t.redovi.length) return;
+    var opseg = list.getRange(2, kolona + 1, t.redovi.length, 1);
+    var nove = opseg.getValues().map(function (r) {
+      var v = r[0];
+      if (typeof v === 'number') { preskoceno++; return [v]; }
+      var broj = parseInt(String(v).trim().replace(/\.$/, ''), 10);
+      if (isNaN(broj)) { preskoceno++; return [v]; }
+      ispravljeno++;
+      return [broj];
+    });
+    opseg.setValues(nove);
+    opseg.setNumberFormat('0');       // spriječi da Sheets nazad prikaže kao tekst
+  });
+  SpreadsheetApp.getUi().alert('Ispravljeno u broj: ' + ispravljeno +
+    '.\nVeć bilo u redu ili nije prepoznato: ' + preskoceno + '.');
 }
 
 /* ----------------------------------------------------------- kategorije */
