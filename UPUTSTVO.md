@@ -272,7 +272,11 @@ list `ISPORUKE`. Rekap se osvježava i sam pri svakom „Osvježi sažetke".
   umjesto brojčanim (1, 2, 3…), znači da je ta kolona upisana kao tekst
   (čest slučaj poslije uvoza iz .xls/.csv). Ova stavka je pretvori u pravi
   broj u svim listovima `PODACI_*`, bez diranja bilo koje druge kolone ili
-  već unesenih isporuka – siguran je pokrenuti bilo kad.
+  već unesenih isporuka – siguran je pokrenuti bilo kad. **Ovo se od sada
+  radi i samo od sebe** pri svakom „Osvježi sažetke" (i u dnevnom
+  automatskom osvježavanju ako je uključeno), pa se ne treba ponovo ručno
+  pokretati – dovoljno je jednom pokrenuti „Osvježi sažetke" poslije
+  ažuriranja `Kod.gs` da se ispravi postojeće stanje.
 - **Zaključaj računate kolone** – `Preostalo m3` i `Status` računa skripta, pa
   ih ova stavka zaštiti od ručne izmjene (vlasnik i dalje može, skripta radi
   normalno). „Otključaj" skida zaštitu. Napomena: ako je uključeno, automatski

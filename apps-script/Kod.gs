@@ -181,6 +181,7 @@ function osvjeziSazetke() {
         'Za isporuku korisnika', 'Status ulice'], redovi);
     obojiStatus_(s, 10, redovi.length);
     obojiPodatke_(vrsta.podaci);
+    ispraviRedniBrojZaListu_(vrsta.podaci);
   });
 
   osvjeziMjesta_(poVrsti);
@@ -1253,27 +1254,39 @@ function iskljuciOkidace_() {
  * umjesto brojčano. Ovo pretvara postojeće vrijednosti u pravi broj, u
  * svim listovima PODACI_*, bez diranja bilo koje druge kolone ili podatka.
  */
-function ispraviRedniBroj() {
-  var ispravljeno = 0, preskoceno = 0;
-  VRSTE.forEach(function (vrsta) {
-    var list = list_(vrsta.podaci);
-    var t = citaj_(vrsta.podaci);
-    var kolona = t.i['Redni broj'];
-    if (kolona === undefined || !t.redovi.length) return;
-    var opseg = list.getRange(2, kolona + 1, t.redovi.length, 1);
-    var nove = opseg.getValues().map(function (r) {
-      var v = r[0];
-      if (typeof v === 'number') { preskoceno++; return [v]; }
-      var broj = parseInt(String(v).trim().replace(/\.$/, ''), 10);
-      if (isNaN(broj)) { preskoceno++; return [v]; }
-      ispravljeno++;
-      return [broj];
-    });
-    opseg.setValues(nove);
-    opseg.setNumberFormat('0');       // spriječi da Sheets nazad prikaže kao tekst
+/**
+ * Svede "Redni broj" na PRAVI broj (ne tekst) na jednom listu PODACI_*, i
+ * postavi format ćelija na broj da Sheets ne vrati nazad na tekst pri
+ * sljedećem ručnom unosu. Bez ovoga Google Sheets sortira/filtrira tu
+ * kolonu slovno (1,10,11,2...) umjesto brojčano (1,2,3...).
+ * Vraća koliko je ćelija ispravljeno.
+ */
+function ispraviRedniBrojZaListu_(nazivLista) {
+  var list = list_(nazivLista);
+  var t = citaj_(nazivLista);
+  var kolona = t.i['Redni broj'];
+  if (kolona === undefined || !t.redovi.length) return 0;
+  var opseg = list.getRange(2, kolona + 1, t.redovi.length, 1);
+  var ispravljeno = 0;
+  var nove = opseg.getValues().map(function (r) {
+    var v = r[0];
+    if (typeof v === 'number') return [v];
+    var broj = parseInt(String(v).trim().replace(/\.$/, ''), 10);
+    if (isNaN(broj)) return [v];
+    ispravljeno++;
+    return [broj];
   });
-  SpreadsheetApp.getUi().alert('Ispravljeno u broj: ' + ispravljeno +
-    '.\nVeć bilo u redu ili nije prepoznato: ' + preskoceno + '.');
+  opseg.setValues(nove);
+  opseg.setNumberFormat('0');
+  return ispravljeno;
+}
+
+/** Ručno pokretanje iz menija - ispravi na svim listovima PODACI_* i javi rezultat. */
+function ispraviRedniBroj() {
+  var ispravljeno = 0;
+  VRSTE.forEach(function (vrsta) { ispravljeno += ispraviRedniBrojZaListu_(vrsta.podaci); });
+  SpreadsheetApp.getUi().alert('Ispravljeno u broj: ' + ispravljeno + '.' +
+    (ispravljeno === 0 ? '\n\nSve je već bilo u redu.' : ''));
 }
 
 /* ----------------------------------------------------------- kategorije */
