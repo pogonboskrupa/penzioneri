@@ -148,6 +148,14 @@ Krupe) i da se snađe i kad je naziv ulice upisan približno:
    gdje treba (npr. gdje živi kupac) – pin se odmah snimi u `ULICE_GEO` s
    oznakom „ručno” i geokodiranje je više neće dirati.
 
+**Zaštita ručno postavljenih pinova od ispravki naziva ulice** – ako poslije
+ručnog postavljanja pina nekome ispraviš tipfeler u koloni „Ulica” u
+`PODACI_*`, „Osvježi sažetke” prepozna da je riječ o istoj (ili vrlo
+sličnoj) ulici u istom mjestu i **sam prenese** ranije postavljen pin na
+novi naziv – ne treba ga ponovo ručno postavljati. Ako se ipak dogodi da
+naziv promijeniš toliko da program više ne prepozna sličnost (rijetko), ulica
+će se pojaviti kao „Nesvrstano” i tad je samo ponovo postaviš.
+
 ### Direktna ispravka klikom na kupca na karti
 Klikneš na pin (kupca/penzionera/RVI/...) na karti → otvori se oblačić/info
 prikaz sa spiskom korisnika na toj adresi, kao i do sada. Na dnu tog prikaza

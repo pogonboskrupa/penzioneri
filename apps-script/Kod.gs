@@ -184,7 +184,7 @@ function osvjeziSazetke() {
   });
 
   osvjeziMjesta_(poVrsti);
-  osvjeziGeo_(poVrsti, sveUlice, geoPostojeci);
+  osvjeziGeo_(poVrsti, sveUlice, geoPostojeci.mapa, geoPostojeci.rucno);
   if (SpreadsheetApp.getActive().getSheetByName(LIST_PREGLED)) osvjeziPregled_();
   if (SpreadsheetApp.getActive().getSheetByName(LIST_REKAP)) osvjeziRekap_();
   SpreadsheetApp.getActive().toast('Sažeci osvježeni.', 'Drva', 5);
@@ -257,26 +257,55 @@ function osvjeziMjesta_(poVrsti) {
     'Odobreno m3', 'Isporučeno m3', 'Preostalo m3', 'Realizacija'], redovi);
 }
 
+/**
+ * Vraća { mapa, rucno }:
+ *  - mapa: postojeće koordinate iz ULICE_GEO, ključ = Adresa ključ
+ *  - rucno: ručno postavljeni pinovi grupisani po mjestu, kao rezerva za
+ *    slučaj kad se tekst ulice malo promijeni (vidi osvjeziGeo_) - bez ovoga
+ *    bi ispravka naziva ulice (npr. tipfeler) posle ručnog pomjeranja pina
+ *    "osirotila" taj pin, jer bi dobio novi ključ i stari se ne bi prepoznao.
+ */
 function ucitajKoordinate_() {
   var mapa = {};
+  var rucno = {};
   var s = SpreadsheetApp.getActive().getSheetByName(LIST_GEO);
-  if (!s) return mapa;
+  if (!s) return { mapa: mapa, rucno: rucno };
   var t = citaj_(LIST_GEO);
   t.redovi.forEach(function (r) {
     var k = String(r[t.i['Adresa ključ']]).trim();
     if (k && r[t.i['Lat']] !== '' && r[t.i['Lng']] !== '') {
-      mapa[k] = {
-        lat: broj_(r[t.i['Lat']]), lng: broj_(r[t.i['Lng']]),
-        tacnost: t.i['Tačnost'] !== undefined ? String(r[t.i['Tačnost']] || '') : '',
+      var tacnost = t.i['Tačnost'] !== undefined ? String(r[t.i['Tačnost']] || '') : '';
+      var zapis = {
+        lat: broj_(r[t.i['Lat']]), lng: broj_(r[t.i['Lng']]), tacnost: tacnost,
         podudaranje: t.i['Podudaranje sa'] !== undefined
           ? String(r[t.i['Podudaranje sa']] || '') : ''
       };
+      mapa[k] = zapis;
+      if (tacnost === 'ručno') {
+        var mjesto = String(r[t.i['Mjesto']]).trim();
+        (rucno[mjesto] = rucno[mjesto] || []).push({
+          ulica: String(r[t.i['Ulica']]).trim(), lat: zapis.lat, lng: zapis.lng
+        });
+      }
     }
   });
-  return mapa;
+  return { mapa: mapa, rucno: rucno };
 }
 
-function osvjeziGeo_(poVrsti, sveUlice, koordinate) {
+/** Traži ranije ručno postavljen pin za vrlo sličnu ulicu u istom mjestu -
+ * koristi se kad ključ adrese više ne postoji (promijenjen tekst ulice). */
+function nadjiRucniZaPrijenos_(rucno, mjesto, ulica) {
+  var kandidati = rucno[String(mjesto).trim()];
+  if (!kandidati || !kandidati.length) return null;
+  var a = pojednostavi_(ulica), najbolji = null, ocjena = -1;
+  kandidati.forEach(function (kand) {
+    var o = slicnost_(a, pojednostavi_(kand.ulica));
+    if (o > ocjena) { ocjena = o; najbolji = kand; }
+  });
+  return ocjena >= PRAG_SLICNOSTI_ULICE ? najbolji : null;
+}
+
+function osvjeziGeo_(poVrsti, sveUlice, koordinate, rucniZapisi) {
   var zaglavlje = ['Mjesto', 'Ulica', 'Adresa ključ'];
   VRSTE.forEach(function (vrsta) {
     zaglavlje.push('Preostalo ' + vrsta.naziv + ' m3', 'Isporučeno ' + vrsta.naziv + ' m3');
@@ -284,10 +313,19 @@ function osvjeziGeo_(poVrsti, sveUlice, koordinate) {
   zaglavlje.push('Preostalo ukupno m3', 'Adresa za kartu', 'Lat', 'Lng', 'Tačnost',
     'Podudaranje sa');
   var kolonaTacnosti = zaglavlje.indexOf('Tačnost') + 1;
+  var prenesenihRucnih = 0;
 
   var redovi = Object.keys(sveUlice).map(function (k) {
     var u = sveUlice[k];
-    var xy = koordinate[k] || { lat: '', lng: '', tacnost: '', podudaranje: '' };
+    var xy = koordinate[k];
+    if (!xy && rucniZapisi) {
+      var preneseno = nadjiRucniZaPrijenos_(rucniZapisi, u.mjesto, u.ulica);
+      if (preneseno) {
+        xy = { lat: preneseno.lat, lng: preneseno.lng, tacnost: 'ručno', podudaranje: '' };
+        prenesenihRucnih++;
+      }
+    }
+    xy = xy || { lat: '', lng: '', tacnost: '', podudaranje: '' };
     var adresa = u.ulica && u.ulica !== '(bez ulice)'
       ? u.ulica + ', ' + u.mjesto + ', Bosna i Hercegovina'
       : u.mjesto + ', Bosna i Hercegovina';
@@ -312,6 +350,11 @@ function osvjeziGeo_(poVrsti, sveUlice, koordinate) {
         : r[0] === 'ručno' ? '#cfe2f3' : r[0] === 'slično' ? '#d0e0fb'
         : r[0] === 'nesvrstano' ? '#f4cccc' : null];
     }));
+  }
+  if (prenesenihRucnih > 0) {
+    SpreadsheetApp.getActive().toast(
+      prenesenihRucnih + ' ručno postavljen(ih) pin(ova) preneseno na promijenjen naziv ulice.',
+      'Drva', 6);
   }
 }
 
