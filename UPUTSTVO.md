@@ -83,17 +83,23 @@ Trenutno stanje:
 
 ### Upis isporuke
 **Najbrže** – direktno u tabelu: na bilo kojem listu `PODACI_*` upiši broj
-kubika u kolonu **„Isporučeno m3“** i pritisni Enter. Ostalo se samo izračuna
-istog trenutka: **Preostalo m3**, **Status** (ZA ISPORUKU / DJELIMIČNO /
-ISPORUČENO), boja cijelog reda (zeleno/crveno), a ako je „Datum isporuke“
-prazan – upiše se današnji datum. Radi i pri ljepljenju više redova odjednom.
+kubika u kolonu **„Isporučeno m3“** i pritisni Enter. Odmah se sam izračuna
+**Preostalo m3**, **Status** (ZA ISPORUKU / DJELIMIČNO / ISPORUČENO) i boja
+cijelog reda (zeleno/crveno). Radi i pri ljepljenju više redova odjednom.
+
+**Datum isporuke se upisuje ručno**, u koloni „Datum isporuke“ – kratko, bez
+godine i vremena (npr. **„28.07.“**). Program ga ne upisuje sam. Ako ipak
+upišeš i godinu (npr. „28.07.2026“), radi jednako dobro. Datum bez godine se
+u mjesečnom rekapu (list `REKAP`) računa kao tekuća godina – ako ti zatreba
+oko prijelaza u novu godinu, tada upiši godinu eksplicitno da ne bude zabune.
 
 *(Ovo ne diže i broj otpremnice, i ne mijenja odmah `ULICE_GEO`/`MJESTA`/
 `PREGLED` – za to i dalje treba „Osvježi sažetke“, ili uključi automatsko
 jutarnje osvježavanje iz Podešavanja.)*
 
-Ako želiš da se odmah upiše i broj otpremnice, i u historiju (list
-`ISPORUKE`): klikni na red korisnika → **🪵 Drva → Upiši isporuku za
+Ako želiš da te kroz unos vodi dijalog (pita za količinu, otpremnicu i
+datum jedno po jedno), i da se odmah upiše u historiju (list `ISPORUKE`):
+klikni na red korisnika → **🪵 Drva → Upiši isporuku za
 označeni red** → upiši m³ i otpremnicu kroz dijalog.
 
 ### Pregled po ulicama

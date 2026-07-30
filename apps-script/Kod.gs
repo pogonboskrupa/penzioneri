@@ -74,7 +74,9 @@ function kljucAdrese_(mjesto, ulica) {
  * Automatski se pokreće kad neko upiše/promijeni broj u koloni
  * "Isporučeno m3" na bilo kojem listu PODACI_* - operater ne mora otvarati
  * dijalog "Upiši isporuku": čim upiše kubike, sam se izračuna Preostalo,
- * Status, boja reda, a ako je Datum isporuke prazan - upiše se današnji.
+ * Status i boja reda. Datum isporuke se NE upisuje automatski - to je
+ * namjerno ostavljeno za ručni unos (piše se kratko, npr. "28.07." bez
+ * godine i vremena).
  * (Ne mijenja ULICE_GEO/MJESTA/PREGLED - za to i dalje treba
  * "Osvježi sažetke", ili uključi automatsko jutarnje osvježavanje.)
  */
@@ -99,7 +101,7 @@ function onEdit(e) {
         opseg.getColumn() + opseg.getNumColumns() - 1 < kolIsporuceno + 1) return;
 
     var kolOdobreno = idx['Odobreno m3'], kolPreostalo = idx['Preostalo m3'],
-      kolStatus = idx['Status'], kolDatum = idx['Datum isporuke'];
+      kolStatus = idx['Status'];
     if ([kolOdobreno, kolPreostalo, kolStatus].some(function (k) { return k === undefined; })) return;
 
     for (var r = 0; r < opseg.getNumRows(); r++) {
@@ -112,12 +114,6 @@ function onEdit(e) {
 
       list.getRange(red, kolPreostalo + 1).setValue(preostalo);
       list.getRange(red, kolStatus + 1).setValue(status);
-      if (kolDatum !== undefined && isporuceno > 0) {
-        var celijaDatum = list.getRange(red, kolDatum + 1);
-        if (!celijaDatum.getValue()) {
-          celijaDatum.setValue(Utilities.formatDate(new Date(), 'Europe/Sarajevo', 'dd.MM.yyyy'));
-        }
-      }
       var boja = (preostalo <= 0.001 && isporuceno > 0) ? BOJA_ISPORUCENO : BOJA_NEISPORUCENO;
       list.getRange(red, 1, 1, zadnjaKolona).setBackground(boja);
     }
@@ -674,14 +670,20 @@ function upisiIsporuku() {
     ui.ButtonSet.OK_CANCEL);
   if (otpremnica.getSelectedButton() !== ui.Button.OK) return;
 
+  var datumUnos = ui.prompt('Datum isporuke',
+    'Upišite datum (kratko, npr. "28.07." - bez godine i vremena). Može ostati prazno.',
+    ui.ButtonSet.OK_CANCEL);
+  if (datumUnos.getSelectedButton() !== ui.Button.OK) return;
+
   var novoIsporuceno = okrugli_(vecIsporuceno + kolicina);
   var novoPreostalo = Math.max(okrugli_(odobreno - novoIsporuceno), 0);
   list.getRange(red, t.i['Isporučeno m3'] + 1).setValue(novoIsporuceno);
   list.getRange(red, t.i['Preostalo m3'] + 1).setValue(novoPreostalo);
   list.getRange(red, t.i['Status'] + 1).setValue(
     novoPreostalo <= 0.001 ? 'ISPORUČENO' : 'DJELIMIČNO');
-  list.getRange(red, t.i['Datum isporuke'] + 1)
-    .setValue(Utilities.formatDate(new Date(), 'Europe/Sarajevo', 'dd.MM.yyyy'));
+  if (datumUnos.getResponseText().trim()) {
+    list.getRange(red, t.i['Datum isporuke'] + 1).setValue(datumUnos.getResponseText().trim());
+  }
   if (otpremnica.getResponseText()) {
     list.getRange(red, t.i['Otpremnica'] + 1).setValue(otpremnica.getResponseText());
   }
@@ -925,10 +927,13 @@ function osvjeziPregled_() {
 /* ------------------------------------------------------------ rekap */
 
 /**
- * Pretvara vrijednost kolone "Datum isporuke" (Date objekat ili tekst
- * tipa "23.07.2026", "18.06.2026.") u ključ mjeseca "yyyy-MM". Vraća null
- * ako datum nije prepoznat (npr. upisan bez godine) - takav red se ne
- * broji u mjesečnom pregledu, ali ostaje uračunat u ukupnim zbirovima.
+ * Pretvara vrijednost kolone "Datum isporuke" (Date objekat ili tekst) u
+ * ključ mjeseca "yyyy-MM". Datum se upisuje ručno i obično bez godine
+ * (npr. "28.07."), pa se u tom slučaju uzima tekuća godina - ako se to
+ * pokaže netačno oko prijelaza godine, upiši godinu eksplicitno
+ * ("28.07.2026") i biće tačno prepoznato. Vraća null ako datum uopšte
+ * nije prepoznat - takav red se ne broji u mjesečnom pregledu, ali
+ * ostaje uračunat u ukupnim zbirovima.
  */
 function mjesecKljuc_(v) {
   if (!v) return null;
@@ -936,8 +941,17 @@ function mjesecKljuc_(v) {
   if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v)) {
     d = v;
   } else {
-    var m = String(v).trim().match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/);
-    if (m) d = new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
+    var s = String(v).trim();
+    var sGod = s.match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/);
+    if (sGod) {
+      d = new Date(parseInt(sGod[3], 10), parseInt(sGod[2], 10) - 1, parseInt(sGod[1], 10));
+    } else {
+      var bezGod = s.match(/^(\d{1,2})[.\/](\d{1,2})\.?$/);
+      if (bezGod) {
+        d = new Date(new Date().getFullYear(), parseInt(bezGod[2], 10) - 1,
+          parseInt(bezGod[1], 10));
+      }
+    }
   }
   return d ? Utilities.formatDate(d, 'Europe/Sarajevo', 'yyyy-MM') : null;
 }
