@@ -335,12 +335,13 @@ function resetujDugmadPostavljanja_() {
   });
 }
 
-/** Ikona s podrškom za povlačenje (Leafletov circleMarker se ne može vući). */
-var IKONA_POVUCI = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+/** Ikona s podrškom za povlačenje - čist CSS (bez slike sa spoljne adrese,
+ * koja zna ne uspjeti na nekim mrežama i ostaviti nevidljiv pin). */
+var IKONA_POVUCI = L.divIcon({
+  className: '',
+  html: '<div style="width:28px;height:28px;border-radius:50%;background:#1a73e8;' +
+    'border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)"></div>',
+  iconSize: [28, 28], iconAnchor: [14, 14]
 });
 var privremeniMarker = null;
 
@@ -351,12 +352,18 @@ function pokreniPostavljanje(kljuc, dugme) {
   if (privremeniMarker) { karta.removeLayer(privremeniMarker); privremeniMarker = null; }
   karta.closePopup();
 
-  var tacka = SVE.filter(function (t) { return t.kljuc === kljuc; })[0];
-  var pocetna = (tacka && tacka.lat !== null) ? [tacka.lat, tacka.lng] : karta.getCenter();
-  privremeniMarker = L.marker(pocetna, { draggable: true, icon: IKONA_POVUCI, zIndexOffset: 1000 })
-    .addTo(karta)
-    .bindTooltip('Povuci me na tačnu lokaciju', { permanent: true, direction: 'top' });
-  karta.setView(pocetna, Math.max(karta.getZoom(), 16));
+  try {
+    var tacka = SVE.filter(function (t) { return t.kljuc === kljuc; })[0];
+    var pocetna = (tacka && tacka.lat !== null) ? [tacka.lat, tacka.lng] : karta.getCenter();
+    privremeniMarker = L.marker(pocetna, { draggable: true, icon: IKONA_POVUCI, zIndexOffset: 1000 })
+      .addTo(karta)
+      .bindTooltip('Povuci me na tačnu lokaciju', { permanent: true, direction: 'top' });
+    karta.setView(pocetna, Math.max(karta.getZoom(), 16));
+  } catch (greska) {
+    alert('Nije uspjelo postavljanje pina: ' + greska.message);
+    resetujDugmadPostavljanja_();
+    return;
+  }
 
   postavljaSeKljuc = kljuc;
   if (dugme) {
