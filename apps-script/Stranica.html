@@ -41,6 +41,9 @@
   .adresa-stavka button { font-size:12px; padding:4px 10px; margin-left:4px; cursor:pointer;
             border:1px solid #1a73e8; color:#1a73e8; background:#fff; border-radius:4px; }
   .adresa-stavka button.aktivno { background:#d93025; color:#fff; border-color:#d93025; }
+  .dugme-adresa { font-size:12px; padding:5px 12px; margin-top:6px; cursor:pointer;
+            border:1px solid #1a73e8; color:#1a73e8; background:#fff; border-radius:4px; }
+  .dugme-adresa.aktivno { background:#d93025; color:#fff; border-color:#d93025; }
   #trazicAdresa { padding:7px 10px; border:1px solid var(--linija); border-radius:6px;
             width:100%; max-width:420px; font-size:13px; margin-bottom:8px; }
   #rezultatiAdresa { max-height:320px; overflow-y:auto; background:#fff;
@@ -194,6 +197,16 @@ function pokreni() {
       })
     : L.layerGroup();
   sloj.addTo(karta);
+
+  // Dugme u oblačiću se ubaci u DOM tek kad se popup otvori (Leaflet ga
+  // gradi iz HTML stringa svaki put), pa se klik hvata na taj događaj.
+  karta.on('popupopen', function (e) {
+    var dugme = e.popup.getElement().querySelector('.dugme-adresa');
+    if (dugme) {
+      dugme.onclick = function () { pokreniPostavljanje(dugme.getAttribute('data-kljuc'), dugme); };
+    }
+  });
+
   ucitaj();
   setInterval(ucitaj, 5 * 60 * 1000);   // sam se osvježi svakih 5 minuta
 }
@@ -328,7 +341,7 @@ function crtajRijesiAdrese() {
 document.getElementById('trazicAdresa').oninput = crtajRijesiAdrese;
 
 function resetujDugmadPostavljanja_() {
-  document.querySelectorAll('.adresa-stavka button').forEach(function (b) {
+  document.querySelectorAll('.adresa-stavka button, .dugme-adresa').forEach(function (b) {
     b.classList.remove('aktivno');
     var prije = b.getAttribute('data-tekst-prije');
     if (prije) { b.textContent = prije; b.removeAttribute('data-tekst-prije'); }
@@ -532,7 +545,9 @@ function popupHtml(tacka, z) {
                : 'ostalo <strong>' + k.preostalo + ' m³</strong>') +
         '</td></tr>';
     });
-  return html + '</table></div>';
+  html += '</table><button class="dugme-adresa" data-kljuc="' +
+    String(tacka.kljuc).replace(/"/g, '&quot;') + '">📍 Promijeni adresu</button>';
+  return html + '</div>';
 }
 
 /** Pretvara SVE (tačke po ulici) u ravan spisak - jedan red po korisniku. */
@@ -703,7 +718,12 @@ function otvori(tacka, z, element) {
                (k.isporuceno ? '<br>dio isporučen: ' + k.isporuceno + ' m³' : '')) +
       '</td></tr>';
   });
-  box.innerHTML = html + '</table>';
+  html += '</table><button class="dugme-adresa" data-kljuc="' +
+    String(tacka.kljuc).replace(/"/g, '&quot;') + '">📍 Promijeni adresu</button>';
+  box.innerHTML = html;
+  box.querySelector('.dugme-adresa').onclick = function (ev) {
+    pokreniPostavljanje(tacka.kljuc, ev.target);
+  };
   var mjesto = element || document.getElementById('spisak').firstChild;
   if (mjesto && mjesto.parentNode) {
     mjesto.parentNode.insertBefore(box, mjesto.nextSibling);

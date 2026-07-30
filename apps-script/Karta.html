@@ -38,6 +38,9 @@
   .adresa-stavka { border-bottom: 1px solid #eee; padding: 6px 0; font-size: 13px; }
   .adresa-stavka button { font-size: 12px; padding: 3px 8px; margin-left: 4px; cursor: pointer; }
   .adresa-stavka button.aktivno { background: #d93025; color: #fff; border-color: #d93025; }
+  .dugme-adresa { font-size: 12px; padding: 4px 10px; margin-top: 6px; cursor: pointer;
+                  border: 1px solid #1a73e8; color: #1a73e8; background: #fff; border-radius: 4px; }
+  .dugme-adresa.aktivno { background: #d93025; color: #fff; border-color: #d93025; }
 </style>
 </head>
 <body>
@@ -180,7 +183,7 @@ function crtajRijesiAdrese() {
 document.getElementById('trazicAdresa').oninput = crtajRijesiAdrese;
 
 function resetujDugmadPostavljanja_() {
-  document.querySelectorAll('.adresa-stavka button').forEach(function (b) {
+  document.querySelectorAll('.adresa-stavka button, .dugme-adresa').forEach(function (b) {
     b.classList.remove('aktivno');
     var prije = b.getAttribute('data-tekst-prije');
     if (prije) { b.textContent = prije; b.removeAttribute('data-tekst-prije'); }
@@ -326,8 +329,19 @@ function popupHtml(tacka, z) {
                  (k.datum ? ' (' + k.datum + ')' : '')
                : 'ostalo ' + k.preostalo + ' m3') + '</td></tr>';
     });
-  return html + '</table></div>';
+  html += '</table><button class="dugme-adresa" data-kljuc="' +
+    String(tacka.kljuc).replace(/"/g, '&quot;') + '">📍 Promijeni adresu</button>';
+  return html + '</div>';
 }
+
+// Dugme u oblačiću se ubaci u DOM tek kad se popup otvori (Leaflet ga
+// gradi iz HTML stringa svaki put), pa se klik hvata na taj događaj.
+karta.on('popupopen', function (e) {
+  var dugme = e.popup.getElement().querySelector('.dugme-adresa');
+  if (dugme) {
+    dugme.onclick = function () { pokreniPostavljanje(dugme.getAttribute('data-kljuc'), dugme); };
+  }
+});
 
 function crtaj() {
   sloj.clearLayers();
@@ -405,7 +419,12 @@ function prikaziDetalje(tacka, z) {
           (k.isporuceno ? '<br>dio isporučen: ' + k.isporuceno + ' m3' : '')) +
       '</td></tr>';
   });
-  document.getElementById('detalji').innerHTML = html + '</table>';
+  html += '</table><button class="dugme-adresa" data-kljuc="' +
+    String(tacka.kljuc).replace(/"/g, '&quot;') + '">📍 Promijeni adresu</button>';
+  document.getElementById('detalji').innerHTML = html;
+  document.getElementById('detalji').querySelector('.dugme-adresa').onclick = function (ev) {
+    pokreniPostavljanje(tacka.kljuc, ev.target);
+  };
 }
 
 document.getElementById('samoPreostalo').onchange = crtaj;

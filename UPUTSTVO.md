@@ -142,10 +142,17 @@ Krupe) i da se snađe i kad je naziv ulice upisan približno:
    gdje treba (npr. gdje živi kupac) – pin se odmah snimi u `ULICE_GEO` s
    oznakom „ručno” i geokodiranje je više neće dirati.
 
+### Direktna ispravka klikom na kupca na karti
+Klikneš na pin (kupca/penzionera/RVI/...) na karti → otvori se oblačić/info
+prikaz sa spiskom korisnika na toj adresi, kao i do sada. Na dnu tog prikaza
+je dugme **📍 Promijeni adresu** – klikneš ga i odmah se na karti pojavi pin
+koji povučeš na tačno mjesto, pa klikneš **✓ Snimi lokaciju** (traka pri
+vrhu karte). Ne moraš ići u poseban odjeljak „Riješi adrese“ za ovo – radi
+se direktno iz istog prikaza koji se otvori na klik.
+
 ### Odjeljak „🛠 Riješi adrese” – postavljanje i ispravka pina
-Sve što se tiče lokacije ulice na karti (nove ili pogrešne) rješava se na
-**jednom mjestu**, odjeljku **🛠 Riješi adrese** u bočnom panelu (na kraju
-liste ulica):
+Ovo je drugi, brži put do iste izmjene – korisno kad tražiš adresu po imenu
+ulice (npr. onu koja uopšte nema pin, pa je nema šta da se klikne na karti):
 
 - **pretraga hvata približno** – upiši ulicu ili mjesto i pored tačnih
   pogodaka izlaze i **slični nazivi uz tipfelere** (npr. upišeš „Sokka” i
@@ -161,7 +168,11 @@ liste ulica):
 
 Nema posebne lozinke ni dozvole za ovo – ko god ima pristup karti (u
 Sheetsu ili na javnoj stranici) može ispraviti adresu, isto kao što može i
-upisati isporuku. Isti odjeljak postoji i na karti u Sheetsu i na javnoj
+upisati isporuku. Oba puta (klik na kupca ili odjeljak „Riješi adrese“)
+snimaju u istu tabelu (`ULICE_GEO`), pa je promjena vidljiva svima – i u
+Sheetsu i na javnoj stranici, na svakom uređaju – čim ponovo otvore kartu ili
+im se stranica sama osvježi (svakih 5 minuta). Isti odjeljak postoji i na
+karti u Sheetsu i na javnoj
 stranici (poglavlje 4).
 
 Ponovno pokretanje **Geokodiraj ulice** ne dira ulice već označene „ulica”
