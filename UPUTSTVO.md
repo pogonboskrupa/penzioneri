@@ -316,6 +316,13 @@ Na stranici su: kartice sa zbirovima (odvojeno cijepano / u dugom / ukupno),
 karta s bojama po statusu, spisak ulica sortiran po preostalim kubicima,
 pretraga po ulici, mjestu ili prezimenu, i detalji kome je isporučeno.
 
+Ispod karte je **spisak korisnika s filterom po svakoj koloni** (Vrsta,
+Mjesto, Ulica, Ime, Kategorija, Status). Padajući izbor **„Status"** uz
+svaku opciju pokazuje **koliko joj m³ pripada** – npr. „isporučeno (1623,5
+m³)", „za isporuku (1989,0 m³)" – i taj broj se sam prilagodi ostalim
+aktivnim filterima (npr. ako prvo izabereš Mjesto, brojevi uz „Status" će
+pokazivati samo za to mjesto).
+
 Uz to, dva alata za rad na terenu:
 
 - **🖨 Štampaj spisak** – otvori radni nalog za kamion od **trenutno
