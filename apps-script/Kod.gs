@@ -67,7 +67,15 @@ function broj_(v) {
 }
 
 function kljucAdrese_(mjesto, ulica) {
-  return String(mjesto).trim().toUpperCase() + '|' + String(ulica).trim().toUpperCase();
+  return mjestoKljuc_(mjesto) + '|' + String(ulica).trim().toUpperCase();
+}
+
+// Isto mjesto se zna upisati različitom kombinacijom velikih/malih slova
+// (npr. "Bosanska Krupa" i "BOSANSKA KRUPA") - svi indeksi grupisani po
+// mjestu (ključ adrese, uzorci za geokodiranje, ručni pinovi) moraju
+// koristiti ISTU normalizaciju, inače se poklapanja tiho gube.
+function mjestoKljuc_(mjesto) {
+  return String(mjesto).trim().toUpperCase();
 }
 
 /**
@@ -236,20 +244,23 @@ function osvjeziMjesta_(poVrsti) {
     var grupe = poVrsti[vrsta.naziv];
     Object.keys(grupe).forEach(function (k) {
       var g = grupe[k];
-      if (!zbir[g.mjesto]) {
-        zbir[g.mjesto] = { korisnika: 0, odobreno: 0, isporuceno: 0,
-                           preostalo: 0, ulica: 0 };
+      var mk = mjestoKljuc_(g.mjesto);
+      if (!zbir[mk]) {
+        zbir[mk] = { mjesto: g.mjesto, korisnika: 0, odobreno: 0, isporuceno: 0,
+                     preostalo: 0, ulica: 0 };
       }
-      var z = zbir[g.mjesto];
+      var z = zbir[mk];
       z.korisnika += g.korisnika;
       z.odobreno += g.odobreno;
       z.isporuceno += g.isporuceno;
       z.preostalo += g.preostalo;
       z.ulica++;
     });
-    Object.keys(zbir).sort().forEach(function (m) {
-      var z = zbir[m];
-      redovi.push([vrsta.naziv, m, z.ulica, z.korisnika, okrugli_(z.odobreno),
+    Object.keys(zbir).sort(function (a, b) {
+      return zbir[a].mjesto.localeCompare(zbir[b].mjesto, 'bs');
+    }).forEach(function (mk) {
+      var z = zbir[mk];
+      redovi.push([vrsta.naziv, z.mjesto, z.ulica, z.korisnika, okrugli_(z.odobreno),
         okrugli_(z.isporuceno), okrugli_(z.preostalo),
         z.odobreno ? Math.round(z.isporuceno / z.odobreno * 100) + '%' : '0%']);
     });
@@ -283,7 +294,7 @@ function ucitajKoordinate_() {
       };
       mapa[k] = zapis;
       if (tacnost === 'ručno') {
-        var mjesto = String(r[t.i['Mjesto']]).trim();
+        var mjesto = mjestoKljuc_(r[t.i['Mjesto']]);
         (rucno[mjesto] = rucno[mjesto] || []).push({
           ulica: String(r[t.i['Ulica']]).trim(), lat: zapis.lat, lng: zapis.lng
         });
@@ -296,7 +307,7 @@ function ucitajKoordinate_() {
 /** Traži ranije ručno postavljen pin za vrlo sličnu ulicu u istom mjestu -
  * koristi se kad ključ adrese više ne postoji (promijenjen tekst ulice). */
 function nadjiRucniZaPrijenos_(rucno, mjesto, ulica) {
-  var kandidati = rucno[String(mjesto).trim()];
+  var kandidati = rucno[mjestoKljuc_(mjesto)];
   if (!kandidati || !kandidati.length) return null;
   var a = pojednostavi_(ulica), najbolji = null, ocjena = -1;
   kandidati.forEach(function (kand) {
@@ -401,7 +412,7 @@ function geokodirajMjesto_(geokoder, adresaMjesta) {
 var PRAG_SLICNOSTI_ULICE = 0.5;
 
 function dodajUzorak_(poMjestu, mjesto, ulica, lat, lng) {
-  mjesto = String(mjesto).trim();
+  mjesto = mjestoKljuc_(mjesto);
   if (!poMjestu[mjesto]) poMjestu[mjesto] = [];
   poMjestu[mjesto].push({ ulica: String(ulica).trim(), lat: lat, lng: lng });
 }
@@ -413,7 +424,7 @@ function dodajUzorak_(poMjestu, mjesto, ulica, lat, lng) {
  * To je pouzdanije nego centar cijelog naselja.
  */
 function nadjiSlicnuUlicu_(poMjestu, mjesto, ulica) {
-  var uzorci = poMjestu[String(mjesto).trim()] || [];
+  var uzorci = poMjestu[mjestoKljuc_(mjesto)] || [];
   var a = pojednostavi_(ulica), najbolji = null, ocjena = -1;
   // isti naziv bez dijakritike (npr. "Bihacka" / "Bihaćka") = najbolji mogući pogodak
   uzorci.forEach(function (u) {
@@ -939,17 +950,20 @@ function osvjeziPregled_() {
     var tm = citaj_(LIST_MJESTA);
     var poMjestu = {}, redoslijedMjesta = [];
     tm.redovi.forEach(function (r) {
-      var m = String(r[tm.i['Mjesto']]);
-      if (!poMjestu[m]) { poMjestu[m] = { isporuceno: 0, preostalo: 0 }; redoslijedMjesta.push(m); }
-      poMjestu[m].isporuceno += broj_(r[tm.i['Isporučeno m3']]);
-      poMjestu[m].preostalo += broj_(r[tm.i['Preostalo m3']]);
+      var mk = mjestoKljuc_(r[tm.i['Mjesto']]);
+      if (!poMjestu[mk]) {
+        poMjestu[mk] = { mjesto: String(r[tm.i['Mjesto']]), isporuceno: 0, preostalo: 0 };
+        redoslijedMjesta.push(mk);
+      }
+      poMjestu[mk].isporuceno += broj_(r[tm.i['Isporučeno m3']]);
+      poMjestu[mk].preostalo += broj_(r[tm.i['Preostalo m3']]);
     });
     var pomocnaKolona = 11;  // K - van vidokruga tabele iznad
     s.getRange(1, pomocnaKolona, 1, 3).setValues([['Mjesto', 'Isporučeno m³', 'Preostalo m³']]);
     redoslijedMjesta.sort(function (a, b) { return poMjestu[b].preostalo - poMjestu[a].preostalo; });
-    redoslijedMjesta.forEach(function (m, i) {
+    redoslijedMjesta.forEach(function (mk, i) {
       s.getRange(2 + i, pomocnaKolona, 1, 3).setValues(
-        [[m, okrugli_(poMjestu[m].isporuceno), okrugli_(poMjestu[m].preostalo)]]);
+        [[poMjestu[mk].mjesto, okrugli_(poMjestu[mk].isporuceno), okrugli_(poMjestu[mk].preostalo)]]);
     });
     if (redoslijedMjesta.length) {
       var grafikon = s.newChart().setChartType(Charts.ChartType.COLUMN)

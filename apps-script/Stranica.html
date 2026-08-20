@@ -591,7 +591,7 @@ function popuniFiltere(spisak) {
     var trenutna = el.value;
     el.innerHTML = '<option value="">sve</option>' +
       jedinstveneVrijednosti(spisak, kolona).map(function (v) {
-        return '<option value="' + v.replace(/"/g, '&quot;') + '">' + v + '</option>';
+        return '<option value="' + escHtml(v) + '">' + escHtml(v) + '</option>';
       }).join('');
     el.value = trenutna;
   });
