@@ -32,7 +32,7 @@ function onOpen() {
     .addSeparator()
     .addSubMenu(ui.createMenu('Provjere')
       .addItem('Mogući duplikati ulica', 'provjeriDuplikate')
-      .addItem('Dupli matični brojevi u istom spisku', 'provjeriDupleKorisnike'))
+      .addItem('Dupli matični brojevi (u spisku i između grupa)', 'provjeriDupleKorisnike'))
     .addSubMenu(ui.createMenu('Podešavanja')
       .addItem('Izbor kategorija (penzioner/RVI/sindikat)', 'postaviKategorije')
       .addItem('Ispravi "Redni broj" u pravi broj (tekst → broj)', 'ispraviRedniBroj')
@@ -837,31 +837,70 @@ function otkljucajRacunateKolone() {
 
 /* ------------------------------------------------ provjera duplih korisnika */
 
-/** Isti matični broj dvaput u ISTOM spisku je greška unosa. */
+/**
+ * Dvije vrste provjere istog matičnog broja:
+ *  1. dvaput u ISTOM spisku (PODACI_*) - skoro sigurno greška unosa;
+ *  2. u DVIJE RAZLIČITE GRUPE (npr. i u RVI i u Porodice šehida) - može biti
+ *     namjerno (osoba ispunjava uslove za oba fonda), ali može biti i
+ *     greška/dvostruko računanje, pa se samo prijavljuje na uvid, ne
+ *     brojanje unutar Penzioneri (Cijepano/U dugom) koje je uvijek uredu.
+ */
 function provjeriDupleKorisnike() {
   var nalazi = [];
+  var poGrupi = {};   // grupa -> matični broj -> [opis, ...]
+
   VRSTE.forEach(function (vrsta) {
     var t = citaj_(vrsta.podaci);
     var vidjeni = {};
+    var grupa = GRUPA_ZA_VRSTU_[vrsta.naziv] || vrsta.naziv;
     t.redovi.forEach(function (r, idx) {
       var mb = String(r[t.i['Matični broj']] || '').trim();
       if (!mb) return;
       var opis = String(r[t.i['Prezime']]) + ' ' + String(r[t.i['Ime']]) +
         ' (red ' + (idx + 2) + ')';
+
       if (vidjeni[mb]) {
         nalazi.push(vrsta.podaci + ' – MB ' + mb + ': ' + vidjeni[mb] + '  ↔  ' + opis);
       } else {
         vidjeni[mb] = opis;
       }
+
+      (poGrupi[grupa] = poGrupi[grupa] || {});
+      (poGrupi[grupa][mb] = poGrupi[grupa][mb] || []).push(vrsta.podaci + ': ' + opis);
     });
   });
-  SpreadsheetApp.getUi().alert(nalazi.length
-    ? 'Isti matični broj dvaput u istom spisku (' + nalazi.length + '):\n\n' +
-      nalazi.slice(0, 30).join('\n') +
-      (nalazi.length > 30 ? '\n…' : '') +
-      '\n\nProvjerite je li riječ o grešci unosa ili o dvije stavke istog korisnika.'
-    : 'Nema duplih matičnih brojeva unutar istog spiska.\n\n' +
-      '(Isti korisnik u oba spiska - cijepano i u dugom - je uredu i ne prijavljuje se.)');
+
+  var medjuGrupama = [];
+  var poMB = {};   // matični broj -> { grupa -> [opis, ...] }
+  Object.keys(poGrupi).forEach(function (grupa) {
+    Object.keys(poGrupi[grupa]).forEach(function (mb) {
+      (poMB[mb] = poMB[mb] || {})[grupa] = poGrupi[grupa][mb];
+    });
+  });
+  Object.keys(poMB).forEach(function (mb) {
+    var grupe = Object.keys(poMB[mb]);
+    if (grupe.length > 1) {
+      var opis = grupe.map(function (g) { return poMB[mb][g].join(', '); }).join('  ↔  ');
+      medjuGrupama.push('MB ' + mb + ': ' + opis);
+    }
+  });
+
+  var poruka = '';
+  if (nalazi.length) {
+    poruka += 'Isti matični broj dvaput u istom spisku (' + nalazi.length + '):\n\n' +
+      nalazi.slice(0, 20).join('\n') + (nalazi.length > 20 ? '\n…' : '') +
+      '\n\nProvjerite je li riječ o grešci unosa ili o dvije stavke istog korisnika.\n\n';
+  }
+  if (medjuGrupama.length) {
+    poruka += 'Isti matični broj u VIŠE RAZLIČITIH GRUPA (' + medjuGrupama.length + '):\n\n' +
+      medjuGrupama.slice(0, 20).join('\n') + (medjuGrupama.length > 20 ? '\n…' : '') +
+      '\n\nMože biti namjerno (osoba ispunjava uslove za oba fonda) - provjerite.\n\n';
+  }
+  if (!poruka) {
+    poruka = 'Nema duplih matičnih brojeva - ni unutar istog spiska, ni između različitih grupa.\n\n' +
+      '(Isti korisnik u Cijepano i U dugom unutar Penzioneri je uredu i ne prijavljuje se.)';
+  }
+  SpreadsheetApp.getUi().alert(poruka);
 }
 
 /* --------------------------------------------------------- zbirni pregled */
@@ -1343,8 +1382,8 @@ function provjeriDuplikate() {
   var t = citaj_(LIST_GEO);
   var poMjestu = {};
   t.redovi.forEach(function (r) {
-    var m = String(r[t.i['Mjesto']]).trim();
-    (poMjestu[m] = poMjestu[m] || []).push(String(r[t.i['Ulica']]).trim());
+    var mk = mjestoKljuc_(r[t.i['Mjesto']]);
+    (poMjestu[mk] = poMjestu[mk] || []).push(String(r[t.i['Ulica']]).trim());
   });
   var sumnjivi = [];
   Object.keys(poMjestu).forEach(function (m) {
