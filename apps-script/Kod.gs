@@ -67,7 +67,7 @@ function broj_(v) {
 }
 
 function kljucAdrese_(mjesto, ulica) {
-  return String(mjesto).trim() + '|' + String(ulica).trim().toUpperCase();
+  return String(mjesto).trim().toUpperCase() + '|' + String(ulica).trim().toUpperCase();
 }
 
 /**

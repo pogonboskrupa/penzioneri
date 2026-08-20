@@ -77,6 +77,14 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 var sloj = L.layerGroup().addTo(karta);
 var SVE = [], postavljaSeKljuc = null;
 
+/** Sprječava da podaci iz tabele (ime, ulica, napomena...) polome HTML ili
+ * ubace neželjeni kod ako sadrže znakove <, >, &, " ili '. */
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function ucitajSve() {
   google.script.run.withSuccessHandler(function (odgovor) {
     SVE = odgovor.tacke || [];
@@ -163,7 +171,7 @@ function crtajRijesiAdrese() {
 
   if (!stavke.length) {
     el.innerHTML = '<div style="font-size:12px;color:#666;padding:6px 0">' +
-      (tekst ? 'Nema poklapanja za "' + tekst + '".'
+      (tekst ? 'Nema poklapanja za "' + escHtml(tekst) + '".'
              : 'Sve adrese imaju postavljenu lokaciju. 🎉') + '</div>';
     return;
   }
@@ -171,9 +179,9 @@ function crtajRijesiAdrese() {
   stavke.forEach(function (a) {
     var d = document.createElement('div');
     d.className = 'adresa-stavka';
-    d.innerHTML = '<strong>' + a.ulica + '</strong> <span style="color:#666">' + a.mjesto +
+    d.innerHTML = '<strong>' + escHtml(a.ulica) + '</strong> <span style="color:#666">' + escHtml(a.mjesto) +
       '</span>' + (a.imaLokaciju ? '' : ' <span style="color:#b26a00">(nema lokaciju)</span>') +
-      '<button data-kljuc="' + a.kljuc.replace(/"/g, '&quot;') + '">' +
+      '<button data-kljuc="' + escHtml(a.kljuc) + '">' +
       (a.imaLokaciju ? '📍 Promijeni adresu na karti' : '📍 Postavi adresu na karti') + '</button>';
     d.querySelector('button').onclick = function (ev) { pokreniPostavljanje(a.kljuc, ev.target); };
     el.appendChild(d);
@@ -292,7 +300,7 @@ function kratkaKategorija(k) {
 function oznakaTacnosti(tacka) {
   if (tacka.tacnost === 'slično') {
     return ' <span class="priblizno">(približno, po sličnoj ulici' +
-      (tacka.podudaranje ? ' "' + tacka.podudaranje + '"' : '') + ')</span>';
+      (tacka.podudaranje ? ' "' + escHtml(tacka.podudaranje) + '"' : '') + ')</span>';
   }
   if (tacka.tacnost === 'naselje') return ' <span class="priblizno">(približno, centar naselja)</span>';
   if (tacka.tacnost === 'ručno') return ' <span class="priblizno">(ručno postavljeno)</span>';
@@ -303,10 +311,10 @@ function oznakaTacnosti(tacka) {
 function tooltipHtml(tacka, z) {
   var cekaju = z.korisnici.filter(function (r) { return r.k.preostalo > 0.001; });
   var imena = (cekaju.length ? cekaju : z.korisnici).slice(0, 3).map(function (r) {
-    return r.k.ime + ' (' + kratkaKategorija(r.k.kategorija) + ')';
+    return escHtml(r.k.ime) + ' (' + escHtml(kratkaKategorija(r.k.kategorija)) + ')';
   }).join(', ');
   var ostatak = (cekaju.length ? cekaju : z.korisnici).length - 3;
-  return '<strong>' + tacka.ulica + '</strong> · ' + tacka.mjesto + oznakaTacnosti(tacka) +
+  return '<strong>' + escHtml(tacka.ulica) + '</strong> · ' + escHtml(tacka.mjesto) + oznakaTacnosti(tacka) +
     '<br>ostalo <strong>' + z.preostalo + ' m3</strong>, isporučeno ' +
     z.isporuceno + ' m3' + (imena ? '<br>' + (cekaju.length ? 'čekaju: ' : '') +
     imena + (ostatak > 0 ? ' +' + ostatak : '') : '');
@@ -314,23 +322,23 @@ function tooltipHtml(tacka, z) {
 
 /** Puni spisak imena u oblačiću na karti. */
 function popupHtml(tacka, z) {
-  var html = '<div style="font-size:12px"><strong>' + tacka.ulica + ', ' +
-    tacka.mjesto + '</strong>' + oznakaTacnosti(tacka) +
+  var html = '<div style="font-size:12px"><strong>' + escHtml(tacka.ulica) + ', ' +
+    escHtml(tacka.mjesto) + '</strong>' + oznakaTacnosti(tacka) +
     '<br>ostalo ' + z.preostalo + ' m3 · isporučeno ' +
     z.isporuceno + ' m3<table style="margin-top:4px">';
   z.korisnici.slice().sort(function (a, b) { return b.k.preostalo - a.k.preostalo; })
     .forEach(function (r) {
       var k = r.k, gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
       html += '<tr class="' + (gotov ? 'red-isporuceno' : 'red-ceka') + '">' +
-        '<td>' + (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime +
-        '</strong> <span style="color:#666">' + kratkaKategorija(k.kategorija) +
-        ' · ' + r.vrsta + '</span></td><td>' +
+        '<td>' + (gotov ? '✓' : '●') + '</td><td><strong>' + escHtml(k.ime) +
+        '</strong> <span style="color:#666">' + escHtml(kratkaKategorija(k.kategorija)) +
+        ' · ' + escHtml(r.vrsta) + '</span></td><td>' +
         (gotov ? 'isporučeno ' + k.isporuceno + ' m3' +
-                 (k.datum ? ' (' + k.datum + ')' : '')
+                 (k.datum ? ' (' + escHtml(k.datum) + ')' : '')
                : 'ostalo ' + k.preostalo + ' m3') + '</td></tr>';
     });
   html += '</table><button class="dugme-adresa" data-kljuc="' +
-    String(tacka.kljuc).replace(/"/g, '&quot;') + '">📍 Promijeni adresu</button>';
+    escHtml(tacka.kljuc) + '">📍 Promijeni adresu</button>';
   return html + '</div>';
 }
 
@@ -379,8 +387,8 @@ function crtaj() {
     var d = document.createElement('div');
     d.className = 'stavka ' + (r.z.preostalo <= 0.001 ? 'ulica-zavrsena' : 'ulica-ceka');
     d.innerHTML = '<span class="znak" style="background:' + boja(r.z) + '"></span>' +
-      '<strong>' + r.tacka.ulica + '</strong> <span style="color:#666">' +
-      r.tacka.mjesto + '</span>' + oznakaTacnosti(r.tacka) +
+      '<strong>' + escHtml(r.tacka.ulica) + '</strong> <span style="color:#666">' +
+      escHtml(r.tacka.mjesto) + '</span>' + oznakaTacnosti(r.tacka) +
       '<br>ostalo <strong>' + r.z.preostalo +
       ' m3</strong> · isporučeno ' + r.z.isporuceno + ' m3 · ' +
       r.z.korisnici.length + ' korisnika';
@@ -400,7 +408,7 @@ function crtaj() {
 }
 
 function prikaziDetalje(tacka, z) {
-  var html = '<h3>' + tacka.ulica + ', ' + tacka.mjesto + oznakaTacnosti(tacka) + '</h3>' +
+  var html = '<h3>' + escHtml(tacka.ulica) + ', ' + escHtml(tacka.mjesto) + oznakaTacnosti(tacka) + '</h3>' +
     '<a class="nav" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' +
     tacka.lat + ',' + tacka.lng + '">▸ Navigacija (Google Maps)</a><table>';
   z.korisnici.sort(function (a, b) { return b.k.preostalo - a.k.preostalo; });
@@ -409,18 +417,18 @@ function prikaziDetalje(tacka, z) {
     var gotov = k.preostalo <= 0.001 && k.isporuceno > 0;
     html += '<tr class="' + (gotov ? 'red-isporuceno' : 'red-ceka') + '">' +
       '<td class="' + (gotov ? 'gotov' : 'ceka') + '">' +
-      (gotov ? '✓' : '●') + '</td><td><strong>' + k.ime + '</strong><br>' +
-      '<span style="color:#666">' + kratkaKategorija(k.kategorija) + ' · ' +
-      r.vrsta + (k.telefon ? ' · ' + k.telefon : '') +
+      (gotov ? '✓' : '●') + '</td><td><strong>' + escHtml(k.ime) + '</strong><br>' +
+      '<span style="color:#666">' + escHtml(kratkaKategorija(k.kategorija)) + ' · ' +
+      escHtml(r.vrsta) + (k.telefon ? ' · ' + escHtml(k.telefon) : '') +
       '</span></td><td>' + (gotov
-        ? 'isporučeno ' + k.isporuceno + ' m3' + (k.datum ? '<br>' + k.datum : '') +
-          (k.otpremnica ? '<br>otpr. ' + k.otpremnica : '')
+        ? 'isporučeno ' + k.isporuceno + ' m3' + (k.datum ? '<br>' + escHtml(k.datum) : '') +
+          (k.otpremnica ? '<br>otpr. ' + escHtml(k.otpremnica) : '')
         : 'ostalo <strong>' + k.preostalo + ' m3</strong>' +
           (k.isporuceno ? '<br>dio isporučen: ' + k.isporuceno + ' m3' : '')) +
       '</td></tr>';
   });
   html += '</table><button class="dugme-adresa" data-kljuc="' +
-    String(tacka.kljuc).replace(/"/g, '&quot;') + '">📍 Promijeni adresu</button>';
+    escHtml(tacka.kljuc) + '">📍 Promijeni adresu</button>';
   document.getElementById('detalji').innerHTML = html;
   document.getElementById('detalji').querySelector('.dugme-adresa').onclick = function (ev) {
     pokreniPostavljanje(tacka.kljuc, ev.target);
